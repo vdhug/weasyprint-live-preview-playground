@@ -6,8 +6,10 @@ A browser-based development environment for WeasyPrint with live split-view prev
 
 - 🌐 **Browser-based interface** - Split view with HTML preview (left) and PDF output (right)
 - ⚡ **Live updates** - Automatic PDF regeneration on file changes
+- ✏️ **Integrated code editor** - Edit files directly in your browser with Monaco Editor (VS Code's editor)
 - 🔴 **Error display** - See compilation errors directly in the browser
 - 🔄 **WebSocket updates** - Real-time notifications without page refresh
+- 💾 **Auto-save** - Changes are automatically saved as you type
 - 📱 **Responsive** - Resizable panels to adjust your workspace
 - 🐳 **Dockerized** - No local dependencies needed
 
@@ -23,12 +25,22 @@ A browser-based development environment for WeasyPrint with live split-view prev
    Your browser will automatically open to `http://localhost:5000`
 
 2. **Start editing:**
+   
+   **Option A: Use the web editor** (Recommended)
+   - Click the "⚡ Editor" button in the preview interface
+   - Edit files directly in your browser with syntax highlighting
+   - Changes auto-save and PDF regenerates automatically
+   - Supports `index.html`, `styles.css`, `params.json`, and other files
+   
+   **Option B: Use your favorite editor**
    - Edit files in `playground_files/` directory:
      - `index.html` - Your HTML template with Jinja2 syntax
      - `styles.css` - Your CSS styles
      - `params.json` - Your dynamic data
    - Save your changes
    - Watch the split-view update automatically!
+   
+   **Preview:**
    - Left panel: Rendered HTML preview
    - Right panel: PDF output
 
@@ -125,6 +137,52 @@ All files in this directory are watched for changes and will trigger automatic P
   "name": "World"
 }
 ```
+
+## ✏️ Web-Based Code Editor
+
+The sandbox includes a powerful browser-based code editor powered by Monaco Editor (the same editor used in VS Code).
+
+### Accessing the Editor
+
+1. **From the main interface**: Click the "⚡ Editor" button in the header
+2. **Direct URL**: Open `http://localhost:5000/editor` in your browser
+
+### Features
+
+- **Syntax highlighting** for HTML, CSS, JSON, Markdown, and more
+- **Auto-save** - Changes are saved automatically after 1 second of inactivity
+- **File tree** - Browse all files in your `playground_files/` directory
+- **Keyboard shortcuts**:
+  - `Ctrl+S` / `Cmd+S` - Manual save
+  - Standard editor shortcuts work (Ctrl+F for find, etc.)
+- **File protection** - Cannot delete required files (`index.html`, `params.json`)
+- **Live feedback** - Status indicator shows save state
+- **Dark theme** - Easy on the eyes for long coding sessions
+
+### Editor Interface
+
+```
+┌──────────────────────────────────────────────────────┐
+│ ⚡ Code Editor                    [Status] [Actions] │
+├──────────┬───────────────────────────────────────────┤
+│ Files    │ Editor Area                               │
+│ ├─ ★ index.html                                      │
+│ ├─ ★ params.json    Your code appears here          │
+│ ├─  styles.css      with syntax highlighting         │
+│ └─  README.md       and line numbers                 │
+└──────────┴───────────────────────────────────────────┘
+```
+
+### API Endpoints
+
+The editor uses these REST API endpoints:
+
+- `GET /api/files` - List all files
+- `GET /api/file/<path>` - Read file content
+- `PUT /api/file/<path>` - Update file content
+- `DELETE /api/file/<path>` - Delete file (except required files)
+
+**📖 For detailed editor documentation, see [EDITOR_GUIDE.md](EDITOR_GUIDE.md)**
 
 ## 🐳 Docker Commands (via Makefile)
 

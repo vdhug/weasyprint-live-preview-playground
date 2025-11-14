@@ -9,7 +9,7 @@ import json
 import base64
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, render_template, send_file, jsonify, Response
+from flask import Flask, render_template, send_file, jsonify, Response, request
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 from watchdog.observers import Observer
@@ -151,6 +151,103 @@ pdf_generator = PDFGenerator()
 def index():
     """Serve the main interface"""
     return render_template('viewer.html')
+
+
+@app.route('/editor')
+def editor():
+    """Serve the code editor interface"""
+    return render_template('editor.html')
+
+
+@app.route('/api/files', methods=['GET'])
+def list_files():
+    """List all files in playground directory"""
+    files = []
+    try:
+        for file_path in PLAYGROUND_DIR.rglob('*'):
+            if file_path.is_file() and not file_path.name.startswith('.'):
+                rel_path = file_path.relative_to(PLAYGROUND_DIR)
+                files.append({
+                    'path': str(rel_path),
+                    'name': file_path.name,
+                    'size': file_path.stat().st_size
+                })
+        return jsonify({'files': files})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/file/<path:filename>', methods=['GET'])
+def read_file(filename):
+    """Read a file from playground directory"""
+    try:
+        file_path = PLAYGROUND_DIR / filename
+        
+        # Security: ensure path is within playground directory
+        if not file_path.resolve().is_relative_to(PLAYGROUND_DIR.resolve()):
+            return jsonify({'error': 'Invalid file path'}), 403
+        
+        if not file_path.exists():
+            return jsonify({'error': 'File not found'}), 404
+        
+        content = file_path.read_text(encoding='utf-8')
+        return jsonify({
+            'content': content,
+            'filename': filename,
+            'path': str(file_path.relative_to(PLAYGROUND_DIR))
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/file/<path:filename>', methods=['PUT'])
+def write_file(filename):
+    """Write a file to playground directory"""
+    try:
+        file_path = PLAYGROUND_DIR / filename
+        
+        # Security: ensure path is within playground directory
+        if not file_path.resolve().is_relative_to(PLAYGROUND_DIR.resolve()):
+            return jsonify({'error': 'Invalid file path'}), 403
+        
+        data = request.get_json()
+        content = data.get('content', '')
+        
+        # Create parent directories if needed
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write file
+        file_path.write_text(content, encoding='utf-8')
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'File {filename} saved successfully'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/file/<path:filename>', methods=['DELETE'])
+def delete_file_api(filename):
+    """Delete a file from playground directory"""
+    try:
+        file_path = PLAYGROUND_DIR / filename
+        
+        # Security: ensure path is within playground directory
+        if not file_path.resolve().is_relative_to(PLAYGROUND_DIR.resolve()):
+            return jsonify({'error': 'Invalid file path'}), 403
+        
+        # Don't allow deleting required files
+        if filename in ['index.html', 'params.json']:
+            return jsonify({'error': 'Cannot delete required files'}), 403
+        
+        if file_path.exists():
+            file_path.unlink()
+            return jsonify({'status': 'success', 'message': f'File {filename} deleted'})
+        else:
+            return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/preview')

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Editor - WeasyPrint Sandbox</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        .header {
+            background: #2d2d30;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #3e3e42;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #cccccc;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            background: #0e639c;
+            border: none;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #1177bb;
+        }
+
+        .btn-secondary {
+            background: #3e3e42;
+        }
+
+        .btn-secondary:hover {
+            background: #505050;
+        }
+
+        .status {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 3px;
+            background: #2d2d30;
+        }
+
+        .status.saved {
+            color: #4ade80;
+        }
+
+        .status.saving {
+            color: #facc15;
+        }
+
+        .status.error {
+            color: #ef4444;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #cccccc;
+        }
+
+        .file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .file-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #cccccc;
+            transition: background 0.1s;
+        }
+
+        .file-item:hover {
+            background: #2a2d2e;
+        }
+
+        .file-item.active {
+            background: #094771;
+            color: white;
+        }
+
+        .file-icon {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .file-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-required {
+            color: #facc15;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-header {
+            background: #2d2d30;
+            padding: 8px 16px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .editor-title {
+            font-size: 13px;
+            color: #cccccc;
+        }
+
+        .editor-info {
+            font-size: 11px;
+            color: #858585;
+        }
+
+        #editor {
+            flex: 1;
+            height: 100%;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #858585;
+            gap: 10px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            opacity: 0.5;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4e4e4e;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .toast.success {
+            border-left: 4px solid #4ade80;
+        }
+
+        .toast.error {
+            border-left: 4px solid #ef4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <span>⚡</span>
+            Code Editor
+        </h1>
+        <div class="header-actions">
+            <div class="status" id="saveStatus">Ready</div>
+            <button class="btn btn-secondary" onclick="window.open('/', '_blank')">
+                📄 Preview
+            </button>
+            <button class="btn" onclick="refreshFileList()">
+                🔄 Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-header">Playground Files</div>
+            <div class="file-list" id="fileList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📁</div>
+                    <div>Loading files...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="editor-container">
+            <div class="editor-header">
+                <div class="editor-title" id="editorTitle">No file selected</div>
+                <div class="editor-info" id="editorInfo"></div>
+            </div>
+            <div id="editor"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <script>
+        let editor;
+        let currentFile = null;
+        let saveTimeout = null;
+        let isModified = false;
+
+        // File icons
+        const fileIcons = {
+            'html': '📄',
+            'css': '🎨',
+            'json': '📊',
+            'md': '📝',
+            'js': '📜',
+            'default': '📄'
+        };
+
+        // Initialize Monaco Editor
+        require.config({ 
+            paths: { 
+                vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' 
+            }
+        });
+
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('editor'), {
+                theme: 'vs-dark',
+                automaticLayout: true,
+                fontSize: 14,
+                minimap: { enabled: true },
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                tabSize: 2,
+                insertSpaces: true
+            });
+
+            // Listen for changes
+            editor.onDidChangeModelContent(() => {
+                if (!currentFile) return;
+                
+                isModified = true;
+                updateStatus('Unsaved changes...', 'saving');
+                
+                // Auto-save after 1 second of no typing
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => saveFile(), 1000);
+            });
+
+            // Load initial file list
+            loadFileList();
+        });
+
+        async function loadFileList() {
+            try {
+                const response = await fetch('/api/files');
+                const data = await response.json();
+                
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '';
+
+                if (data.files.length === 0) {
+                    fileList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <div>No files found</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort files: required first, then alphabetically
+                const requiredFiles = ['index.html', 'params.json'];
+                data.files.sort((a, b) => {
+                    const aRequired = requiredFiles.includes(a.name);
+                    const bRequired = requiredFiles.includes(b.name);
+                    if (aRequired && !bRequired) return -1;
+                    if (!aRequired && bRequired) return 1;
+                    return a.path.localeCompare(b.path);
+                });
+
+                data.files.forEach(file => {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    const icon = fileIcons[ext] || fileIcons.default;
+                    const isRequired = requiredFiles.includes(file.name);
+                    
+                    const item = document.createElement('div');
+                    item.className = 'file-item';
+                    item.innerHTML = `
+                        <span class="file-icon">${icon}</span>
+                        <span class="file-name">${file.path}</span>
+                        ${isRequired ? '<span class="file-required">★</span>' : ''}
+                    `;
+                    item.onclick = () => loadFile(file.path, item);
+                    fileList.appendChild(item);
+                });
+
+                // Auto-load index.html if no file is selected
+                if (!currentFile && data.files.length > 0) {
+                    const indexFile = data.files.find(f => f.name === 'index.html');
+                    if (indexFile) {
+                        const firstItem = fileList.querySelector('.file-item');
+                        loadFile(indexFile.path, firstItem);
+                    }
+                }
+            } catch (error) {
+                showToast('Failed to load files: ' + error.message, 'error');
+            }
+        }
+
+        async function loadFile(filename, element) {
+            try {
+                // Save current file before switching
+                if (currentFile && isModified) {
+                    await saveFile(true);
+                }
+
+                const response = await fetch(`/api/file/${filename}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+
+                // Update editor content
+                editor.setValue(data.content);
+                currentFile = filename;
+                isModified = false;
+                
+                // Set language based on file extension
+                const ext = filename.split('.').pop().toLowerCase();
+                const languageMap = {
+                    'html': 'html',
+                    'css': 'css',
+                    'json': 'json',
+                    'js': 'javascript',
+                    'md': 'markdown',
+                    'txt': 'plaintext'
+                };
+                const language = languageMap[ext] || 'plaintext';
+                monaco.editor.setModelLanguage(editor.getModel(), language);
+                
+                // Update UI
+                document.getElementById('editorTitle').textContent = filename;
+                document.getElementById('editorInfo').textContent = 
+                    `${ext.toUpperCase()} • ${data.content.length} chars`;
+                
+                // Update active state
+                document.querySelectorAll('.file-item').forEach(el => 
+                    el.classList.remove('active'));
+                if (element) element.classList.add('active');
+                
+                updateStatus('File loaded', 'saved');
+            } catch (error) {
+                showToast('Failed to load file: ' + error.message, 'error');
+            }
+        }
+
+        async function saveFile(silent = false) {
+            if (!currentFile) return;
+            
+            try {
+                updateStatus('Saving...', 'saving');
+                
+                const response = await fetch(`/api/file/${currentFile}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: editor.getValue()
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    updateStatus('Error saving', 'error');
+                    return;
+                }
+
+                isModified = false;
+                updateStatus('Saved', 'saved');
+                
+                if (!silent) {
+                    showToast('File saved successfully', 'success');
+                }
+            } catch (error) {
+                showToast('Failed to save file: ' + error.message, 'error');
+                updateStatus('Error', 'error');
+            }
+        }
+
+        function refreshFileList() {
+            loadFileList();
+            showToast('File list refreshed', 'success');
+        }
+
+        function updateStatus(text, type) {
+            const status = document.getElementById('saveStatus');
+            status.textContent = text;
+            status.className = 'status ' + type;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Save on Ctrl+S or Cmd+S
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveFile();
+            }
+        });
+
+        // Warn before leaving if unsaved changes
+        window.addEventListener('beforeunload', (e) => {
+            if (isModified) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+    </script>
+</body>
+</html>
+
