@@ -37,6 +37,9 @@ wheels/
 # Output (don't commit generated PDFs from development)
 output.pdf
 
+# User workspaces (temporary user sessions)
+workspaces/
+
 # Logs
 *.log
 
