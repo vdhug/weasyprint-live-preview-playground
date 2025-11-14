@@ -1,15 +1,60 @@
-{% extends "base/layout.html" %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>{{ title }}</h1>
+        <p class="subtitle">{{ subtitle }}</p>
+        
+        <div class="info-box">
+            <p><strong>Generated:</strong> {{ now.strftime('%B %d, %Y at %H:%M') }}</p>
+            <p><strong>Company:</strong> {{ company }}</p>
+        </div>
 
-{% block content %}
-<!-- Running elements for URL and page counter -->
-<div class="recipe-url"><url href={{recipe.url}}>{{ recipe.url }}</url></div>
-<div class="page-counter"></div>
+        <h2>Sample Data</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>${{ "%.2f"|format(item.price) }}</td>
+                    <td>${{ "%.2f"|format(item.quantity * item.price) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3"><strong>Total:</strong></td>
+                    <td>
+                        <strong>
+                        ${% set total = namespace(value=0) %}
+                        {% for item in items %}
+                            {% set total.value = total.value + (item.quantity * item.price) %}
+                        {% endfor %}
+                        {{ "%.2f"|format(total.value) }}
+                        </strong>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
 
-<!-- Header that will appear on every page -->
-<div class="page-header">
-    <div class="page-date-time">{{ now.strftime('%d/%m/%Y %H:%M') }}</div>
-    <div class="page-name">{{ recipe.name }}</div>
-</div>
+        <div class="footer">
+            <p>{{ footer_text }}</p>
+        </div>
+    </div>
+</body>
+</html>
 
-{% include "recipe.html" %}
-{% endblock %}

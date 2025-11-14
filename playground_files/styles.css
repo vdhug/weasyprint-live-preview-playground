@@ -1,69 +1,95 @@
-@import url("fonts.css");
-@import url("base/common.css") print;
-@import url("base/typography.css") print;
-@import url("base/layout.css") print;
+/* Page Setup */
+@page {
+    size: A4;
+    margin: 2cm;
+}
 
-@media print {
-    @page {
-        size: Letter portrait;
-        margin: 0;
-        @top-center {
-            content: element(header);
-        }
-        @bottom-left {
-            content: element(recipe-url);
-        }
-        @bottom-right {
-            content: element(page-counter);
-        }
-        margin-top: 50px;
-        margin-bottom: 40px;
-        counter-increment: page;
-    }
+/* Base Styles */
+body {
+    font-family: 'Helvetica', 'Arial', sans-serif;
+    line-height: 1.6;
+    color: #333;
+}
 
-    /* Page-specific running elements */
-    .page-header {
-        position: running(header);
-        width: 100%;
-        box-sizing: border-box;
-        padding: 10px 48px;
-        background-color: white;
-        display: table;
-        height: 40px;
-    }
+.container {
+    max-width: 100%;
+}
 
-    .page-date-time {
-        display: table-cell;
-        width: 25%;
-        vertical-align: middle;
-        text-align: left;
-    }
+/* Header Styles */
+h1 {
+    color: #2c3e50;
+    font-size: 2.5em;
+    margin-bottom: 0.2em;
+    border-bottom: 3px solid #3498db;
+    padding-bottom: 0.3em;
+}
 
-    .page-name {
-        display: table-cell;
-        width: 50%;
-        vertical-align: middle;
-        text-align: center;
-    }
+.subtitle {
+    font-size: 1.2em;
+    color: #7f8c8d;
+    margin-top: 0;
+}
 
-    .recipe-url {
-        position: running(recipe-url);
-        font-size: 10px;
-        font-family: "CircularCustCapNum", sans-serif;
-        color: #666;
-        padding-left: 48px;
-        padding-bottom: 10px;
-    }
+h2 {
+    color: #2c3e50;
+    font-size: 1.8em;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
 
-    .page-counter {
-        position: running(page-counter);
-        font-size: 10px;
-        font-family: "CircularCustCapNum", sans-serif;
-        padding-right: 48px;
-        padding-bottom: 10px;
-    }
+/* Info Box */
+.info-box {
+    background: #ecf0f1;
+    padding: 1em;
+    border-left: 4px solid #3498db;
+    margin: 1.5em 0;
+}
 
-    .page-counter::after {
-        content: counter(page) "/" counter(pages);
-    }
-} 
+.info-box p {
+    margin: 0.5em 0;
+}
+
+/* Table Styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5em 0;
+}
+
+thead {
+    background: #3498db;
+    color: white;
+}
+
+th, td {
+    padding: 0.75em;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    font-weight: bold;
+}
+
+tbody tr:hover {
+    background: #f8f9fa;
+}
+
+tfoot {
+    background: #ecf0f1;
+    font-weight: bold;
+}
+
+tfoot td {
+    border-top: 2px solid #3498db;
+}
+
+/* Footer */
+.footer {
+    margin-top: 3em;
+    padding-top: 1em;
+    border-top: 2px solid #ecf0f1;
+    text-align: center;
+    color: #7f8c8d;
+    font-size: 0.9em;
+}

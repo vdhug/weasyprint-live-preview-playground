@@ -59,6 +59,22 @@ A browser-based development environment for WeasyPrint with live split-view prev
 
 4. **Edit files and watch the magic!**
 
+## ⚠️ Important: Required File Names
+
+The system expects specific file names in the `playground_files/` directory:
+
+- **`index.html`** (REQUIRED) - Must be named exactly `index.html` - this is your main entry point
+- **`params.json`** (REQUIRED for dynamic content) - Must be named exactly `params.json` - contains all your template variables
+- **`styles.css`** (Optional) - Your CSS styles, can reference other CSS files
+
+**Example structure:**
+```
+playground_files/
+├── index.html    ← REQUIRED: Your main template
+├── params.json   ← REQUIRED: Your data
+└── styles.css    ← Optional: Your styles
+```
+
 ## 📁 Project Structure
 
 ### Core Files
@@ -73,12 +89,42 @@ A browser-based development environment for WeasyPrint with live split-view prev
 
 ### 📝 Playground Files (Edit These!)
 The `playground_files/` directory contains all your editable files:
-- **`index.html`** - Your HTML template with Jinja2 syntax
-- **`styles.css`** - Your CSS styles  
-- **`params.json`** - Your dynamic data in JSON format
+
+**Required Files:**
+- **`index.html`** ⚠️ MUST be named `index.html` - Your main HTML template with Jinja2 syntax
+- **`params.json`** ⚠️ MUST be named `params.json` - Your dynamic data in JSON format
+
+**Optional Files:**
+- **`styles.css`** - Your CSS styles
+- **Other CSS files** - Can be organized in subdirectories (e.g., `base/layout.css`)
+- **Template partials** - For use with `{% include %}` and `{% extends %}`
 - **`README.md`** - Guide for using the playground files
 
 All files in this directory are watched for changes and will trigger automatic PDF regeneration!
+
+**Simple Example:**
+
+`index.html`:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Hello {{ name }}!</h1>
+</body>
+</html>
+```
+
+`params.json`:
+```json
+{
+  "title": "My PDF",
+  "name": "World"
+}
+```
 
 ## 🐳 Docker Commands (via Makefile)
 

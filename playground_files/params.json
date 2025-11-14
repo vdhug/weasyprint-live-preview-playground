@@ -1,197 +1,24 @@
 {
-  "recipe": {
-    "name": "Classic Marinara Sauce",
-    "url": "https://meez.com/recipes/classic-marinara-sauce",
-    "batch_size": 2,
-    "concepts": [
-      {
-        "name": "Italian",
-        "photo_url": ""
-      },
-      {
-        "name": "Sauce Base",
-        "photo_url": ""
-      }
-    ],
-    "yield_data": {
-      "total_efficiency_str": "2.5",
-      "unit_of_measure_name": "quarts"
+  "title": "WeasyPrint Demo Document",
+  "subtitle": "Example of dynamic PDF generation with Jinja2 templates",
+  "company": "ACME Corporation",
+  "items": [
+    {
+      "name": "Widget Pro",
+      "quantity": 5,
+      "price": 29.99
     },
-    "shelf_life_data": {
-      "shelf_life_str": "5",
-      "unit_of_measure_name": "days"
+    {
+      "name": "Gadget Ultra",
+      "quantity": 3,
+      "price": 49.99
     },
-    "media": {
-      "path": ""
-    },
-    "recipe_items": [
-      {
-        "is_header": true,
-        "is_note": false,
-        "name": "Base Ingredients",
-        "primary_quantity": "",
-        "primary_unit_of_measure_name": "",
-        "secondary_quantity": "",
-        "secondary_unit_of_measure_name": "",
-        "preparation_note": ""
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "name": "San Marzano Tomatoes",
-        "primary_quantity": "28",
-        "primary_unit_of_measure_name": "oz",
-        "secondary_quantity": "",
-        "secondary_unit_of_measure_name": "",
-        "preparation_note": "crushed by hand"
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "name": "Extra Virgin Olive Oil",
-        "primary_quantity": "1/4",
-        "primary_unit_of_measure_name": "cup",
-        "secondary_quantity": "",
-        "secondary_unit_of_measure_name": "",
-        "preparation_note": ""
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "name": "Garlic Cloves",
-        "primary_quantity": "6",
-        "primary_unit_of_measure_name": "each",
-        "secondary_quantity": "",
-        "secondary_unit_of_measure_name": "",
-        "preparation_note": "thinly sliced"
-      },
-      {
-        "is_header": true,
-        "is_note": false,
-        "name": "Aromatics & Seasonings",
-        "primary_quantity": "",
-        "primary_unit_of_measure_name": "",
-        "secondary_quantity": "",
-        "secondary_unit_of_measure_name": "",
-        "preparation_note": ""
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "name": "Fresh Basil",
-        "primary_quantity": "1",
-        "primary_unit_of_measure_name": "bunch",
-        "secondary_quantity": "",
-        "secondary_unit_of_measure_name": "",
-        "preparation_note": "leaves only"
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "name": "Kosher Salt",
-        "primary_quantity": "2",
-        "primary_unit_of_measure_name": "tsp",
-        "secondary_quantity": "",
-        "secondary_unit_of_measure_name": "",
-        "preparation_note": ""
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "name": "Black Pepper",
-        "primary_quantity": "1",
-        "primary_unit_of_measure_name": "tsp",
-        "secondary_quantity": "",
-        "secondary_unit_of_measure_name": "",
-        "preparation_note": "freshly ground"
-      },
-      {
-        "is_header": false,
-        "is_note": true,
-        "name": "Note: Adjust seasoning to taste after simmering",
-        "primary_quantity": "",
-        "primary_unit_of_measure_name": "",
-        "secondary_quantity": "",
-        "secondary_unit_of_measure_name": "",
-        "preparation_note": ""
-      }
-    ],
-    "steps": [
-      {
-        "is_header": false,
-        "is_note": false,
-        "description": "heat olive oil in a large saucepan over medium heat until shimmering"
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "description": "add sliced garlic and cook until fragrant and just starting to turn golden, about 2 minutes"
-      },
-      {
-        "is_header": true,
-        "is_note": false,
-        "description": "Tomato Preparation"
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "description": "add crushed tomatoes and their juices to the pan, stirring to combine"
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "description": "season with salt and pepper, then add half of the basil leaves"
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "description": "bring to a gentle simmer and cook for 25-30 minutes, stirring occasionally"
-      },
-      {
-        "is_header": false,
-        "is_note": true,
-        "description": "Tip: Sauce should reduce slightly and develop a deeper color"
-      },
-      {
-        "is_header": true,
-        "is_note": false,
-        "description": "Finishing"
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "description": "taste and adjust seasoning as needed"
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "description": "tear remaining basil leaves and stir into sauce just before serving"
-      },
-      {
-        "is_header": false,
-        "is_note": false,
-        "description": "remove from heat and let rest for 5 minutes before using"
-      }
-    ],
-    "tags": [
-      {
-        "name": "Italian"
-      },
-      {
-        "name": "Vegetarian"
-      },
-      {
-        "name": "Pasta"
-      }
-    ],
-    "stations": [
-      {
-        "name": "Sauce Station"
-      },
-      {
-        "name": "Hot Line"
-      }
-    ]
-  }
+    {
+      "name": "Tool Kit",
+      "quantity": 2,
+      "price": 89.99
+    }
+  ],
+  "footer_text": "Thank you for using WeasyPrint Sandbox!"
 }
 

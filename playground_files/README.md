@@ -1,37 +1,44 @@
 # Playground Files
 
-This directory contains all the files you can edit to customize your PDF output.
+Welcome to the playground! This is where you create your PDF templates.
 
-## 📝 Files
+## 📋 Required Files
 
-### `index.html`
-Your HTML template using Jinja2 syntax.
+### `index.html` (Required)
+**Your main HTML file - MUST be named `index.html`**
 
-**Usage:**
-- Use `{{ variable }}` to insert values from `params.json`
-- Use `{% for item in list %}...{% endfor %}` to loop through arrays
-- Use `{% if condition %}...{% endif %}` for conditionals
-- Reference `styles.css` for styling
+This is the entry point for your PDF. Use Jinja2 syntax to make it dynamic:
 
-**Example:**
 ```html
-<h1>{{ recipe.name }}</h1>
-<p>Batch Size: {{ recipe.batch_size }}x</p>
-
-{% for item in recipe.recipe_items %}
-  <div>{{ item.name }}</div>
-{% endfor %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Hello {{ name }}!</h1>
+    <p>Date: {{ now.strftime('%Y-%m-%d') }}</p>
+</body>
+</html>
 ```
 
-### `styles.css`
-Your CSS styles that will be applied to the HTML.
+### `params.json` (Required for dynamic content)
+**Your data file - MUST be named `params.json`**
 
-**Usage:**
-- Define page size and margins using `@page`
-- Style all your HTML elements
-- Use print-specific CSS properties
+All variables you use in your templates must be defined here:
 
-**Example:**
+```json
+{
+  "title": "My PDF Document",
+  "name": "John Doe"
+}
+```
+
+### `styles.css` (Optional but recommended)
+Your CSS styles, including print-specific rules:
+
 ```css
 @page {
     size: A4;
@@ -40,52 +47,169 @@ Your CSS styles that will be applied to the HTML.
 
 body {
     font-family: Arial, sans-serif;
-    color: #333;
 }
 ```
 
-### `params.json`
-Your data in JSON format that gets injected into the template.
+## 🎯 Quick Start Examples
 
-**Usage:**
-- Define all your dynamic content here
-- Structure your data hierarchically
-- Use arrays for lists of items
+### Example 1: Simple Invoice
 
-**Example:**
+**index.html:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Invoice #{{ invoice_number }}</h1>
+    <p>Customer: {{ customer_name }}</p>
+    <table>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td>${{ item.price }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
+```
+
+**params.json:**
 ```json
 {
-  "recipe": {
-    "name": "Classic Marinara Sauce",
-    "batch_size": 2,
-    "recipe_items": [
-      {"name": "Tomatoes", "quantity": "28 oz"}
-    ]
-  }
+  "invoice_number": "INV-001",
+  "customer_name": "ACME Corp",
+  "items": [
+    {"name": "Widget", "price": 99.99},
+    {"name": "Gadget", "price": 149.99}
+  ]
 }
 ```
 
-## 🔄 Auto-Regeneration
+### Example 2: Certificate
 
-Any time you save changes to these files, the PDF will automatically regenerate and update in the browser!
+**index.html:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="certificate">
+        <h1>Certificate of Completion</h1>
+        <p>This certifies that</p>
+        <h2>{{ student_name }}</h2>
+        <p>has successfully completed</p>
+        <h3>{{ course_name }}</h3>
+        <p>on {{ completion_date }}</p>
+    </div>
+</body>
+</html>
+```
+
+**params.json:**
+```json
+{
+  "student_name": "Jane Smith",
+  "course_name": "Advanced Python Programming",
+  "completion_date": "November 14, 2024"
+}
+```
+
+## 🔧 Advanced Features
+
+### Template Inheritance
+
+Create reusable layouts using `{% extends %}`:
+
+**base.html:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>Company Name</header>
+    {% block content %}{% endblock %}
+    <footer>Page {{ now.strftime('%Y') }}</footer>
+</body>
+</html>
+```
+
+**index.html:**
+```html
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+    <p>{{ content }}</p>
+{% endblock %}
+```
+
+### Include Reusable Components
+
+**index.html:**
+```html
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>{{ title }}</h1>
+    {% include "header.html" %}
+    {% include "content.html" %}
+</body>
+</html>
+```
+
+## 📁 Organizing Your Files
+
+You can organize CSS and templates in subdirectories:
+
+```
+playground_files/
+├── index.html           ← REQUIRED: Main entry point
+├── params.json          ← REQUIRED: Your data
+├── styles.css           ← Main styles
+├── base/                ← Subdirectory for base templates
+│   ├── layout.html
+│   └── common.css
+├── components/          ← Reusable components
+│   ├── header.html
+│   └── footer.html
+└── fonts.css            ← Custom fonts
+```
 
 ## 🌐 Built-in Variables
 
-These variables are always available in your templates:
-- `now` - Current datetime
-  - `{{ now.strftime('%d/%m/%Y') }}` - Date
+These variables are always available without defining them in `params.json`:
+
+- `now` - Current datetime object
+  - `{{ now.strftime('%Y-%m-%d') }}` - Date
   - `{{ now.strftime('%H:%M') }}` - Time
+  - `{{ now.strftime('%B %d, %Y') }}` - Full date
 
 ## 💡 Tips
 
-1. **Start Simple** - Begin with a basic template and gradually add complexity
-2. **Test Incrementally** - Make small changes and verify the output
-3. **Use the Preview** - The left panel shows your rendered HTML, the right shows the PDF
-4. **Check the Console** - Terminal logs show generation status and errors
+1. **Start Simple** - Begin with a basic `index.html` and `params.json`
+2. **Test Incrementally** - Make small changes and watch the PDF update
+3. **Use the Preview** - The left panel shows your rendered HTML
+4. **Check Console** - Terminal shows generation status and errors
+5. **Validate JSON** - Make sure your `params.json` is valid JSON
+
+## 🚀 Workflow
+
+1. Edit `index.html` (your template)
+2. Edit `params.json` (your data)
+3. Edit `styles.css` (your styles)
+4. Save any file
+5. Watch the PDF auto-regenerate! ✨
 
 ## 📚 Resources
 
-- [Jinja2 Documentation](https://jinja.palletsprojects.com/)
+- [Jinja2 Template Documentation](https://jinja.palletsprojects.com/)
 - [WeasyPrint Documentation](https://weasyprint.org/)
-- [CSS for Print](https://www.smashingmagazine.com/2015/01/designing-for-print-with-css/)
+- [CSS for Print Media](https://www.smashingmagazine.com/2015/01/designing-for-print-with-css/)
 
