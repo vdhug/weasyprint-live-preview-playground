@@ -1,0 +1,15 @@
+{% extends "base/layout.html" %}
+
+{% block content %}
+<!-- Running elements for URL and page counter -->
+<div class="recipe-url"><url href={{recipe.url}}>{{ recipe.url }}</url></div>
+<div class="page-counter"></div>
+
+<!-- Header that will appear on every page -->
+<div class="page-header">
+    <div class="page-date-time">{{ now.strftime('%d/%m/%Y %H:%M') }}</div>
+    <div class="page-name">{{ recipe.name }}</div>
+</div>
+
+{% include "recipe.html" %}
+{% endblock %}

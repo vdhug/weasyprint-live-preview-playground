@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  weasyprint-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: weasyprint-sandbox
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount playground_files directory for user-editable files
+      - ./playground_files:/app/playground_files
+      # Mount output PDF
+      - ./output.pdf:/app/output.pdf
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

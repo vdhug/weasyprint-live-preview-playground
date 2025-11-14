@@ -1,0 +1,83 @@
+/* Typography styles for PDF generation */
+@media print {
+
+    .body-print {
+        color: black;
+        font-size: 12px;
+        font-family: "CircularCustCapNum", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-weight: 400;
+        line-height: 15.60px;
+        overflow-wrap: break-word;
+        display: inline-block;
+        word-wrap: break-word;
+    }
+
+    .headline-print {
+        color: black;
+        font-size: 22px;
+        font-family: "CircularCustCapNum", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-weight: 900;
+        line-height: 28.60px;
+        overflow-wrap: break-word;
+        display: block;
+    }
+
+    .body-bold-print {
+        color: black;
+        font-size: 12px;
+        font-family: "CircularCustCapNum", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-weight: 500;
+        line-height: 15.60px;
+        overflow-wrap: break-word;
+        display: inline-block;
+        word-wrap: break-word;
+    }
+
+    .body-light-print {
+        color: black;
+        font-size: 12px;
+        font-family: "CircularCustCapNum", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-weight: 300;
+        line-height: 15.60px;
+        overflow-wrap: break-word;
+        display: inline-block;
+        margin-left: 4px;
+        word-wrap: break-word;
+        font-style: normal;
+    }
+
+    .body-spacer {
+        color: black;
+        font-size: 12px;
+        font-family: "CircularCustCapNum", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-weight: 500;
+        line-height: 15.60px;
+        overflow-wrap: break-word;
+        display: inline-block;
+    }
+
+    .title-print {
+        color: black;
+        font-size: 16px;
+        font-family: "CircularCustCapNum", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        line-height: 20.80px;
+        overflow-wrap: break-word;
+        display: block;
+    }
+
+    /* Step content typography */
+    .step-content .body-bold-print {
+        display: inline;
+    }
+
+    .step-content .body-print {
+        display: block;
+        margin-top: 4px;
+        word-wrap: break-word;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+} 

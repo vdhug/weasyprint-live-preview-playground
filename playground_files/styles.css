@@ -1,0 +1,69 @@
+@import url("fonts.css");
+@import url("base/common.css") print;
+@import url("base/typography.css") print;
+@import url("base/layout.css") print;
+
+@media print {
+    @page {
+        size: Letter portrait;
+        margin: 0;
+        @top-center {
+            content: element(header);
+        }
+        @bottom-left {
+            content: element(recipe-url);
+        }
+        @bottom-right {
+            content: element(page-counter);
+        }
+        margin-top: 50px;
+        margin-bottom: 40px;
+        counter-increment: page;
+    }
+
+    /* Page-specific running elements */
+    .page-header {
+        position: running(header);
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 48px;
+        background-color: white;
+        display: table;
+        height: 40px;
+    }
+
+    .page-date-time {
+        display: table-cell;
+        width: 25%;
+        vertical-align: middle;
+        text-align: left;
+    }
+
+    .page-name {
+        display: table-cell;
+        width: 50%;
+        vertical-align: middle;
+        text-align: center;
+    }
+
+    .recipe-url {
+        position: running(recipe-url);
+        font-size: 10px;
+        font-family: "CircularCustCapNum", sans-serif;
+        color: #666;
+        padding-left: 48px;
+        padding-bottom: 10px;
+    }
+
+    .page-counter {
+        position: running(page-counter);
+        font-size: 10px;
+        font-family: "CircularCustCapNum", sans-serif;
+        padding-right: 48px;
+        padding-bottom: 10px;
+    }
+
+    .page-counter::after {
+        content: counter(page) "/" counter(pages);
+    }
+} 

@@ -1,0 +1,157 @@
+╔══════════════════════════════════════════════════════════╗
+║         WeasyPrint Sandbox - Quick Start Guide          ║
+║              🌐 Browser-Based Live Preview              ║
+╚══════════════════════════════════════════════════════════╝
+
+🚀 GETTING STARTED (Docker - Recommended)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣  Build the container (first time only):
+    $ make build
+
+2️⃣  Start the sandbox:
+    $ make run
+    
+    → Browser automatically opens to http://localhost:5000
+
+3️⃣  You'll see a split view:
+    📄 Left side:  HTML preview (live rendering)
+    📑 Right side: PDF output (auto-generated)
+
+4️⃣  Edit index.html or styles.css in your editor
+    → Save the file
+    → Watch BOTH panels update automatically! ✨
+
+5️⃣  Stop when done:
+    $ make stop
+
+
+🖥️  BROWSER INTERFACE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Left Panel (HTML Preview):
+  • Shows your HTML rendered in browser
+  • Updates instantly when you save
+  • See your content before PDF conversion
+
+Right Panel (PDF Output):
+  • Shows generated PDF inline
+  • Auto-refreshes on changes
+  • Displays errors if generation fails
+
+Top Bar:
+  • Status indicator (green = ready, red = error)
+  • Last update time
+  • Manual "Regenerate" button
+
+Features:
+  ✓ Real-time WebSocket updates
+  ✓ Resizable panels (drag the divider!)
+  ✓ Error messages with stack traces
+  ✓ Toast notifications
+  ✓ No manual refresh needed
+
+
+📋 COMMON COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+make help      → Show all available commands
+make build     → Build the Docker image
+make run       → Start container & open browser
+make stop      → Stop the container
+make restart   → Restart everything
+make logs      → View server logs
+make shell     → Open shell in container
+make status    → Check container status
+make rebuild   → Rebuild from scratch
+make clean     → Remove everything
+
+
+🔍 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Browser doesn't open automatically?
+→ Manually navigate to: http://localhost:5000
+
+Can't connect to localhost:5000?
+→ Run: make logs
+→ Check if container is running: make status
+
+PDF shows errors?
+→ Check the error message in the right panel
+→ Common issues: unclosed HTML tags, invalid CSS
+
+Changes not detected?
+→ Make sure you're saving the file
+→ Check WebSocket status indicator (top right)
+→ Try manual regenerate button
+
+Want to see server logs?
+→ Run: make logs
+
+
+💡 PRO TIPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Use split screen: editor on one side, browser on the other
+✓ Drag the divider to adjust panel sizes
+✓ Keep the status indicator visible
+✓ Errors show full stack trace - super helpful!
+✓ Press Ctrl+C in logs won't stop the server
+✓ Browser updates happen automatically via WebSocket
+
+
+📁 PROJECT STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+weasyprint_sandbox/
+├── Dockerfile              ← Docker configuration
+├── docker-compose.yml      ← Service setup
+├── Makefile               ← Easy commands
+├── requirements.txt        ← Python deps
+├── server.py              ← Web server
+├── templates/
+│   └── viewer.html        ← Browser interface
+├── index.html             ← Edit this! 📝
+├── styles.css             ← And this! 🎨
+└── output.pdf             ← Generated PDF 📄
+
+
+🎯 EXAMPLE WORKFLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+$ make build              # First time only
+$ make run                # Opens browser automatically
+
+# In your text editor:
+1. Edit index.html
+2. Save
+3. Watch browser update instantly!
+
+# Try breaking something:
+1. Add unclosed <div> tag
+2. Save
+3. See error message in right panel
+
+# When done:
+$ make stop
+
+
+🌐 WITHOUT DOCKER (Local Python)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+$ pip install -r requirements.txt
+$ python3 server.py
+→ Open browser to http://localhost:5000
+
+
+📚 NEED MORE HELP?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+→ Read README.md for detailed documentation
+→ Check ARCHITECTURE.md for system design
+→ Visit: https://doc.courtbouillon.org/weasyprint/
+
+
+Happy PDF generating! 🎉
+Edit • Save • See it live in your browser!
