@@ -172,7 +172,13 @@ logger.info("Background cleanup thread started")
 
 @app.route('/')
 def index():
-    """Serve the main interface"""
+    """Serve the landing page"""
+    return render_template('index.html')
+
+
+@app.route('/viewer')
+def viewer():
+    """Serve the live preview interface"""
     return render_template('viewer.html')
 
 

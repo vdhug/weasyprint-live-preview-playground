@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeasyPrint Sandbox - Live PDF Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .header .emoji {
+            font-size: 56px;
+        }
+
+        .header p {
+            font-size: 20px;
+            opacity: 0.95;
+            line-height: 1.6;
+        }
+
+        .content {
+            padding: 50px 40px;
+        }
+
+        .description {
+            font-size: 18px;
+            line-height: 1.8;
+            color: #4b5563;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .feature {
+            padding: 25px;
+            background: #f9fafb;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+
+        .feature:hover {
+            border-color: #667eea;
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+        }
+
+        .feature-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+
+        .feature-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .actions {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 18px 36px;
+            font-size: 18px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .about-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .about-section h3 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .about-content {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: 25px;
+            opacity: 0.95;
+        }
+
+        .about-content p {
+            margin-bottom: 15px;
+        }
+
+        .about-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .skills-section {
+            margin-top: 25px;
+        }
+
+        .skills-label {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .skills-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .skill-tag {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .skill-tag:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .social-links {
+            margin-top: 25px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .social-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .social-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .social-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .github-section {
+            text-align: center;
+            padding: 30px;
+            background: #f9fafb;
+            border-radius: 12px;
+            border: 2px dashed #d1d5db;
+        }
+
+        .github-section h3 {
+            font-size: 20px;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 24px;
+            background: #1f2937;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .github-link:hover {
+            background: #374151;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .github-icon {
+            font-size: 24px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #9ca3af;
+            font-size: 14px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 36px;
+            }
+
+            .header p {
+                font-size: 16px;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+
+            .actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span class="emoji">📄</span>
+                WeasyPrint Sandbox
+            </h1>
+            <p>Live HTML-to-PDF Development Environment</p>
+        </div>
+
+        <div class="content">
+            <div class="description">
+                A browser-based development environment for <strong>WeasyPrint</strong> with real-time split-view preview. 
+                Edit HTML/CSS files and watch your PDF update instantly!
+            </div>
+
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">🌐</div>
+                    <div class="feature-title">Live Preview</div>
+                    <div class="feature-desc">Split view with HTML preview and PDF output side-by-side</div>
+                </div>
+
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <div class="feature-title">Real-time Updates</div>
+                    <div class="feature-desc">Automatic PDF regeneration on file changes via WebSocket</div>
+                </div>
+
+                <div class="feature">
+                    <div class="feature-icon">✏️</div>
+                    <div class="feature-title">Code Editor</div>
+                    <div class="feature-desc">Integrated Monaco Editor (VS Code) with syntax highlighting</div>
+                </div>
+
+                <div class="feature">
+                    <div class="feature-icon">🎨</div>
+                    <div class="feature-title">Jinja2 Templates</div>
+                    <div class="feature-desc">Use template variables and dynamic content generation</div>
+                </div>
+
+                <div class="feature">
+                    <div class="feature-icon">🔴</div>
+                    <div class="feature-title">Error Display</div>
+                    <div class="feature-desc">See compilation errors with full stack traces instantly</div>
+                </div>
+
+                <div class="feature">
+                    <div class="feature-icon">🐳</div>
+                    <div class="feature-title">Dockerized</div>
+                    <div class="feature-desc">No local dependencies needed - runs in Docker container</div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <a href="/viewer" class="btn btn-primary">
+                    <span>📊</span>
+                    <span>Open Live Preview</span>
+                </a>
+                <a href="/editor" class="btn btn-secondary">
+                    <span>⚡</span>
+                    <span>Open Code Editor</span>
+                </a>
+            </div>
+
+            <div class="about-section">
+                <h3>
+                    <span>👨‍💻</span>
+                    <span>About the Developer</span>
+                </h3>
+                <div class="about-content">
+                    <p>
+                        <strong>Experienced Senior Software Engineer</strong> with over 7 years of expertise in Python development, 
+                        specializing in creating innovative solutions for diverse industries. My journey has been marked by impactful 
+                        contributions to leading organizations, consistently driving operational efficiency and revenue growth.
+                    </p>
+                    <p>
+                        I thrive on leveraging my expertise to solve complex problems and contribute to the success of innovative projects.
+                    </p>
+                </div>
+                
+                <div class="skills-section">
+                    <div class="skills-label">
+                        <span>🚀</span>
+                        <span>Core Abilities</span>
+                    </div>
+                    <div class="skills-list">
+                        <div class="skill-tag">Python (Django)</div>
+                        <div class="skill-tag">JavaScript (Vue)</div>
+                        <div class="skill-tag">PostgreSQL</div>
+                        <div class="skill-tag">AWS</div>
+                    </div>
+                </div>
+
+                <div class="social-links">
+                    <a href="https://www.linkedin.com/in/vitor-hugo-da-silva-lima/" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="social-link">
+                        <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                        </svg>
+                        <span>Connect on LinkedIn</span>
+                    </a>
+                    <a href="https://github.com/vdhug/weasyprint-live-preview-playground" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="social-link">
+                        <svg class="social-icon" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                        </svg>
+                        <span>View GitHub Project</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="github-section">
+                <h3>📦 Open Source Project</h3>
+                <p style="color: #6b7280; margin-bottom: 15px;">This project is open source and available on GitHub. Feel free to contribute, report issues, or use it in your own projects!</p>
+                <a href="https://github.com/vdhug/weasyprint-live-preview-playground" 
+                   target="_blank" 
+                   rel="noopener noreferrer" 
+                   class="github-link">
+                    <svg class="github-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                    </svg>
+                    <span>View Repository</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Built with WeasyPrint, Flask, and ❤️ by Vitor Hugo da Silva Lima</p>
+        </div>
+    </div>
+</body>
+</html>
+
