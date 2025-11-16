@@ -80,6 +80,53 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
+        .html-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .html-selector label {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .html-selector select {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #333;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            min-width: 150px;
+        }
+
+        .html-selector select:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .html-selector-refresh {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 16px;
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .html-selector-refresh:hover {
+            transform: rotate(90deg);
+        }
+
         .container {
             display: flex;
             flex: 1;
@@ -260,6 +307,15 @@
             WeasyPrint Live Preview
         </h1>
         <div class="status">
+            <div class="html-selector">
+                <label for="mainHtmlSelect">Main HTML:</label>
+                <select id="mainHtmlSelect" onchange="changeMainHtml()">
+                    <option value="index.html">index.html</option>
+                </select>
+                <button class="html-selector-refresh" onclick="refreshHtmlFiles()" title="Refresh HTML files list">
+                    🔄
+                </button>
+            </div>
             <div class="status-indicator" id="statusIndicator"></div>
             <span id="statusText">Ready</span>
             <button class="btn" onclick="window.location.href='/'">🏠 Home</button>
@@ -314,6 +370,9 @@
             reloadPDF();
             reloadHTMLPreview();
             showToast('PDF generated successfully!', 'success');
+            
+            // Refresh HTML files list in case new HTML files were added
+            loadHtmlFiles();
         });
 
         socket.on('pdf_error', (error) => {
@@ -399,6 +458,102 @@
                 });
         }
 
+        // HTML file selection functions
+        async function loadHtmlFiles() {
+            try {
+                const response = await fetch('/api/workspace/html-files');
+                const data = await response.json();
+                
+                const select = document.getElementById('mainHtmlSelect');
+                select.innerHTML = '';
+                
+                if (data.html_files && data.html_files.length > 0) {
+                    data.html_files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file.path;
+                        option.textContent = file.path;
+                        select.appendChild(option);
+                    });
+                } else {
+                    // No HTML files found, add default option
+                    const option = document.createElement('option');
+                    option.value = 'index.html';
+                    option.textContent = 'index.html (default)';
+                    select.appendChild(option);
+                }
+                
+                // Load current selection
+                loadCurrentMainHtml();
+            } catch (error) {
+                console.error('Error loading HTML files:', error);
+                // Fallback to default
+                const select = document.getElementById('mainHtmlSelect');
+                select.innerHTML = '<option value="index.html">index.html (default)</option>';
+            }
+        }
+
+        async function loadCurrentMainHtml() {
+            try {
+                const response = await fetch('/api/workspace/main-html');
+                const data = await response.json();
+                
+                if (data.main_html) {
+                    const select = document.getElementById('mainHtmlSelect');
+                    // Check if the option exists in the select
+                    const optionExists = Array.from(select.options).some(opt => opt.value === data.main_html);
+                    if (optionExists) {
+                        select.value = data.main_html;
+                    } else {
+                        // Add the current selection if it doesn't exist
+                        const option = document.createElement('option');
+                        option.value = data.main_html;
+                        option.textContent = data.main_html;
+                        select.appendChild(option);
+                        select.value = data.main_html;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading current main HTML:', error);
+            }
+        }
+
+        async function changeMainHtml() {
+            const select = document.getElementById('mainHtmlSelect');
+            const filename = select.value;
+            
+            try {
+                showToast('Changing main HTML file...', 'success');
+                
+                const response = await fetch('/api/workspace/main-html', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ filename })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showToast(`Main HTML changed to ${filename}`, 'success');
+                    
+                    // Immediately reload both previews to show the new file
+                    reloadHTMLPreview();
+                    reloadPDF();
+                } else {
+                    showToast('Failed to change main HTML', 'error');
+                }
+            } catch (error) {
+                console.error('Error changing main HTML:', error);
+                showToast('Failed to change main HTML', 'error');
+            }
+        }
+
+        async function refreshHtmlFiles() {
+            showToast('Refreshing HTML files...', 'success');
+            await loadHtmlFiles();
+        }
+
         // Resizable divider
         let isDragging = false;
         const divider = document.querySelector('.divider');
@@ -437,6 +592,9 @@
                     updateStatus('Error', true);
                 }
             });
+
+        // Load HTML files list on page load
+        loadHtmlFiles();
     </script>
 </body>
 </html>

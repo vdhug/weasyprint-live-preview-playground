@@ -162,6 +162,34 @@
             font-weight: 600;
         }
 
+        .file-actions {
+            display: none;
+            gap: 4px;
+        }
+
+        .file-item:hover .file-actions {
+            display: flex;
+        }
+
+        .file-delete-btn {
+            background: none;
+            border: none;
+            color: #858585;
+            cursor: pointer;
+            padding: 2px 4px;
+            font-size: 12px;
+            transition: color 0.2s;
+        }
+
+        .file-delete-btn:hover {
+            color: #ef4444;
+        }
+
+        .file-delete-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.3;
+        }
+
         .editor-container {
             flex: 1;
             display: flex;
@@ -263,6 +291,121 @@
                 opacity: 1;
             }
         }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 25px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #cccccc;
+            margin-bottom: 20px;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-label {
+            display: block;
+            font-size: 13px;
+            color: #cccccc;
+            margin-bottom: 8px;
+        }
+
+        .modal-input {
+            width: 100%;
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            color: #cccccc;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #0e639c;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .modal-btn-primary {
+            background: #0e639c;
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            background: #1177bb;
+        }
+
+        .modal-btn-secondary {
+            background: #3e3e42;
+            color: #cccccc;
+        }
+
+        .modal-btn-secondary:hover {
+            background: #505050;
+        }
+
+        /* Delete Confirmation Modal */
+        .delete-modal .modal-content {
+            max-width: 400px;
+        }
+
+        .delete-modal .modal-body {
+            color: #cccccc;
+            line-height: 1.6;
+        }
+
+        .delete-warning {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #f87171;
+        }
     </style>
 </head>
 <body>
@@ -278,6 +421,9 @@
             </button>
             <button class="btn btn-secondary" onclick="window.open('/viewer', '_blank')">
                 📄 Preview
+            </button>
+            <button class="btn" onclick="showNewFileModal()">
+                ➕ New File
             </button>
             <button class="btn" onclick="refreshFileList()">
                 🔄 Refresh
@@ -307,12 +453,57 @@
 
     <div class="toast" id="toast"></div>
 
+    <!-- New File Modal -->
+    <div class="modal" id="newFileModal">
+        <div class="modal-content">
+            <div class="modal-header">Create New File</div>
+            <div class="modal-body">
+                <label class="modal-label" for="newFileName">File Name:</label>
+                <input 
+                    type="text" 
+                    id="newFileName" 
+                    class="modal-input" 
+                    placeholder="e.g., report.html, styles/main.css"
+                    autofocus
+                />
+                <div style="font-size: 12px; color: #858585; margin-top: 8px;">
+                    💡 Tip: Use forward slashes for subdirectories (e.g., templates/header.html)
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="closeNewFileModal()">Cancel</button>
+                <button class="modal-btn modal-btn-primary" onclick="createNewFile()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal delete-modal" id="deleteFileModal">
+        <div class="modal-content">
+            <div class="modal-header">Delete File</div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this file?</p>
+                <div style="font-family: 'Courier New', monospace; color: #4ade80; margin: 10px 0;">
+                    <strong id="deleteFileName"></strong>
+                </div>
+                <div class="delete-warning">
+                    ⚠️ This action cannot be undone. The file will be permanently deleted.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button class="modal-btn modal-btn-primary" style="background: #ef4444;" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
     <script>
         let editor;
         let currentFile = null;
         let saveTimeout = null;
         let isModified = false;
+        let fileToDelete = null; // Track file to be deleted
 
         // File icons
         const fileIcons = {
@@ -403,6 +594,14 @@
                         <span class="file-icon">${icon}</span>
                         <span class="file-name">${file.path}</span>
                         ${isRequired ? '<span class="file-required">★</span>' : ''}
+                        <div class="file-actions">
+                            <button 
+                                class="file-delete-btn" 
+                                onclick="showDeleteModal('${file.path.replace(/'/g, "\\'")}'); event.stopPropagation();"
+                                ${isRequired ? 'disabled' : ''}
+                                title="${isRequired ? 'Cannot delete required files' : 'Delete file'}"
+                            >🗑️</button>
+                        </div>
                     `;
                     item.onclick = () => loadFile(file.path, item);
                     fileList.appendChild(item);
@@ -511,6 +710,114 @@
             showToast('File list refreshed', 'success');
         }
 
+        function showNewFileModal() {
+            const modal = document.getElementById('newFileModal');
+            modal.classList.add('show');
+            document.getElementById('newFileName').focus();
+        }
+
+        function closeNewFileModal() {
+            const modal = document.getElementById('newFileModal');
+            modal.classList.remove('show');
+            document.getElementById('newFileName').value = '';
+        }
+
+        function showDeleteModal(filename) {
+            fileToDelete = filename;
+            document.getElementById('deleteFileName').textContent = filename;
+            document.getElementById('deleteFileModal').classList.add('show');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteFileModal').classList.remove('show');
+            fileToDelete = null;
+        }
+
+        async function confirmDelete() {
+            if (!fileToDelete) return;
+            
+            const filename = fileToDelete;
+            
+            try {
+                const response = await fetch(`/api/file/${filename}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showToast(`File ${filename} deleted successfully`, 'success');
+                    closeDeleteModal();
+                    
+                    // If we're viewing the deleted file, clear the editor
+                    if (currentFile === filename) {
+                        editor.setValue('');
+                        currentFile = null;
+                        document.getElementById('editorTitle').textContent = 'No file selected';
+                        document.getElementById('editorInfo').textContent = '';
+                    }
+                    
+                    // Refresh file list
+                    await loadFileList();
+                } else {
+                    showToast(data.error || 'Failed to delete file', 'error');
+                    closeDeleteModal();
+                }
+            } catch (error) {
+                console.error('Error deleting file:', error);
+                showToast('Failed to delete file: ' + error.message, 'error');
+                closeDeleteModal();
+            }
+        }
+
+        async function createNewFile() {
+            const filename = document.getElementById('newFileName').value.trim();
+            
+            if (!filename) {
+                showToast('Please enter a filename', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/file/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        filename: filename,
+                        content: ''
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showToast(`File ${filename} created successfully`, 'success');
+                    closeNewFileModal();
+                    
+                    // Refresh file list
+                    await loadFileList();
+                    
+                    // Load the new file in editor
+                    // Find the file item and click it
+                    const fileItems = document.querySelectorAll('.file-item');
+                    for (let item of fileItems) {
+                        const fileNameSpan = item.querySelector('.file-name');
+                        if (fileNameSpan && fileNameSpan.textContent === filename) {
+                            item.click();
+                            break;
+                        }
+                    }
+                } else {
+                    showToast(data.error || 'Failed to create file', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating file:', error);
+                showToast('Failed to create file: ' + error.message, 'error');
+            }
+        }
+
         function updateStatus(text, type) {
             const status = document.getElementById('saveStatus');
             status.textContent = text;
@@ -532,6 +839,34 @@
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
                 saveFile();
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeNewFileModal();
+                closeDeleteModal();
+            }
+        });
+
+        // Create file on Enter in modal
+        document.getElementById('newFileName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                createNewFile();
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('newFileModal').addEventListener('click', (e) => {
+            if (e.target.id === 'newFileModal') {
+                closeNewFileModal();
+            }
+        });
+
+        document.getElementById('deleteFileModal').addEventListener('click', (e) => {
+            if (e.target.id === 'deleteFileModal') {
+                closeDeleteModal();
             }
         });
 

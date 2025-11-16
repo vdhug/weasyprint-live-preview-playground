@@ -89,18 +89,26 @@ def generate_pdf_for_workspace(workspace: Path, notify: bool = True) -> None:
     try:
         logger.info(f"Generating PDF for {user_id[:8]}...")
         
-        # Check for index.html
-        html_file = workspace / "index.html"
+        # Get the selected main HTML file (defaults to index.html)
+        main_html_filename = workspace_service.get_main_html_file(user_id)
+        html_file = workspace / main_html_filename
+        
+        # Check if HTML file exists
         if not html_file.exists():
-            logger.warning(f"index.html not found for {user_id[:8]}...")
+            logger.warning(f"{main_html_filename} not found for {user_id[:8]}...")
+            return
+        
+        # Check if HTML file is empty - if so, skip generation gracefully
+        html_content = html_file.read_text()
+        if not html_content.strip():
+            logger.info(f"{main_html_filename} is empty for {user_id[:8]}... skipping PDF generation")
             return
         
         # Load parameters
         params_file = workspace / "params.json"
         params = pdf_service.load_params(params_file)
         
-        # Read and render template
-        html_content = html_file.read_text()
+        # Render template
         rendered_html = template_service.render_with_fallback(
             html_file,
             params,
@@ -126,7 +134,8 @@ def generate_pdf_for_workspace(workspace: Path, notify: bool = True) -> None:
                 'status': 'success',
                 'timestamp': datetime.now().isoformat(),
                 'size': f"{pdf_info['size_kb']:.1f} KB",
-                'user_id': user_id
+                'user_id': user_id,
+                'main_html': main_html_filename
             })
     
     except Exception as e:
@@ -193,15 +202,23 @@ def preview():
     """Serve the rendered HTML content for preview"""
     try:
         workspace = get_user_workspace()
-        html_file = workspace / "index.html"
+        user_id = get_or_create_user_session()
+        
+        # Get the selected main HTML file
+        main_html_filename = workspace_service.get_main_html_file(user_id)
+        html_file = workspace / main_html_filename
         
         if not html_file.exists():
-            return "No HTML file found", 404
+            return f"<html><body><h1>HTML file not found</h1><p>File '{main_html_filename}' does not exist in your workspace.</p></body></html>", 404
+        
+        # Handle empty HTML file gracefully
+        html_content = html_file.read_text()
+        if not html_content.strip():
+            return "<html><body><h1>Empty HTML File</h1><p>The selected HTML file is empty. Please add some content.</p></body></html>", 200
         
         # Load and render template
         params_file = workspace / "params.json"
         params = pdf_service.load_params(params_file)
-        html_content = html_file.read_text()
         
         rendered_html = template_service.render_with_fallback(
             html_file,
@@ -380,6 +397,44 @@ def write_file(filename):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/file/create', methods=['POST'])
+def create_file():
+    """Create a new file in workspace"""
+    try:
+        workspace = get_user_workspace()
+        data = request.get_json()
+        filename = data.get('filename')
+        content = data.get('content', '')
+        
+        if not filename:
+            return jsonify({'error': 'filename is required'}), 400
+        
+        file_path = workspace / filename
+        
+        # Security check
+        if not file_path.resolve().is_relative_to(workspace.resolve()):
+            return jsonify({'error': 'Invalid file path'}), 403
+        
+        # Check if file already exists
+        if file_path.exists():
+            return jsonify({'error': 'File already exists'}), 409
+        
+        # Create parent directories
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content, encoding='utf-8')
+        
+        logger.info(f"File created: {filename}")
+        return jsonify({
+            'status': 'success',
+            'message': f'File {filename} created successfully',
+            'filename': filename
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating file: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/file/<path:filename>', methods=['DELETE'])
 def delete_file(filename):
     """Delete a file from workspace"""
@@ -444,6 +499,74 @@ def manual_cleanup():
         
     except Exception as e:
         logger.error(f"Error in manual cleanup: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/workspace/main-html', methods=['GET'])
+def get_main_html():
+    """Get the currently selected main HTML file"""
+    try:
+        user_id = get_or_create_user_session()
+        main_html = workspace_service.get_main_html_file(user_id)
+        
+        return jsonify({
+            'main_html': main_html
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting main HTML file: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/workspace/main-html', methods=['POST'])
+def set_main_html():
+    """Set the main HTML file for PDF generation"""
+    try:
+        user_id = get_or_create_user_session()
+        data = request.get_json()
+        filename = data.get('filename')
+        
+        if not filename:
+            return jsonify({'error': 'filename is required'}), 400
+        
+        # Validate it's an HTML file
+        if not filename.endswith('.html'):
+            return jsonify({'error': 'File must be an HTML file'}), 400
+        
+        success = workspace_service.set_main_html_file(user_id, filename)
+        
+        if success:
+            # Trigger PDF regeneration with new main file
+            workspace = workspace_service.get_or_create_workspace(user_id)
+            generate_pdf_for_workspace(workspace, notify=True)
+            
+            return jsonify({
+                'status': 'success',
+                'main_html': filename,
+                'message': f'Main HTML file set to {filename}'
+            })
+        else:
+            return jsonify({'error': 'Failed to set main HTML file'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error setting main HTML file: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/workspace/html-files', methods=['GET'])
+def list_html_files():
+    """List all HTML files in the workspace"""
+    try:
+        user_id = get_or_create_user_session()
+        all_files = workspace_service.list_workspace_files(user_id)
+        
+        # Filter for HTML files only
+        html_files = [f for f in all_files if f['name'].endswith('.html')]
+        
+        return jsonify({'html_files': html_files})
+        
+    except Exception as e:
+        logger.error(f"Error listing HTML files: {e}")
         return jsonify({'error': str(e)}), 500
 
 

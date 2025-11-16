@@ -323,4 +323,66 @@ class WorkspaceService(LoggerMixin):
                     self.logger.warning(f"Error getting file info for {file_path}: {e}")
         
         return files
+    
+    def set_main_html_file(self, session_id: str, filename: str) -> bool:
+        """
+        Set the main HTML file for PDF generation
+        
+        Args:
+            session_id: Session identifier
+            filename: Name of the HTML file to use (relative to workspace)
+        
+        Returns:
+            bool: True if successful
+        """
+        workspace = self.get_workspace_path(session_id)
+        config_file = workspace / ".main_html"
+        
+        try:
+            # Ensure the workspace exists
+            if not workspace.exists():
+                self.logger.warning(f"Workspace doesn't exist: {session_id[:8]}...")
+                return False
+            
+            # Validate that the file exists
+            html_file = workspace / filename
+            if not html_file.exists():
+                self.logger.warning(f"HTML file doesn't exist: {filename}")
+                return False
+            
+            # Store the selection
+            config_file.write_text(filename, encoding='utf-8')
+            self.logger.info(f"Main HTML file set to '{filename}' for session: {session_id[:8]}...")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting main HTML file: {e}")
+            return False
+    
+    def get_main_html_file(self, session_id: str) -> str:
+        """
+        Get the main HTML file for PDF generation
+        
+        Args:
+            session_id: Session identifier
+        
+        Returns:
+            str: Filename of the main HTML file (defaults to 'index.html')
+        """
+        workspace = self.get_workspace_path(session_id)
+        config_file = workspace / ".main_html"
+        
+        try:
+            if config_file.exists():
+                filename = config_file.read_text(encoding='utf-8').strip()
+                # Verify the file still exists
+                html_file = workspace / filename
+                if html_file.exists():
+                    return filename
+                else:
+                    self.logger.warning(f"Stored main HTML file '{filename}' no longer exists")
+        except Exception as e:
+            self.logger.error(f"Error reading main HTML file config: {e}")
+        
+        # Default to index.html
+        return 'index.html'
 
