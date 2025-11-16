@@ -1,4 +1,4 @@
-.PHONY: help build run up stop restart logs shell clean rebuild status test test-unit test-watch test-cov test-docker
+.PHONY: help build run up stop restart logs shell clean rebuild status test test-watch test-cov
 
 # Default target
 help:
@@ -19,10 +19,9 @@ help:
 	@echo "  make clean     - Stop and remove container and image"
 	@echo ""
 	@echo "Testing commands:"
-	@echo "  make test-unit   - Run unit tests locally"
-	@echo "  make test-cov    - Run tests with coverage report"
-	@echo "  make test-watch  - Run tests in watch mode"
-	@echo "  make test-docker - Run tests inside Docker container"
+	@echo "  make test        - Run unit tests in Docker"
+	@echo "  make test-cov    - Run tests with coverage in Docker"
+	@echo "  make test-watch  - Run tests in watch mode in Docker"
 	@echo ""
 	@echo "Quick start:"
 	@echo "  1. make up      (builds and starts everything)"
@@ -93,47 +92,43 @@ status:
 	@echo "Container status:"
 	@docker compose ps
 
-# Test PDF generation
+# Run unit tests in Docker
 test:
-	@echo "Testing PDF generation..."
-	docker compose exec weasyprint-sandbox python3 -c "from weasyprint import HTML; HTML(filename='index.html').write_pdf('output.pdf'); print('✓ PDF generated successfully!')"
+	@echo "Running unit tests in isolated Docker container..."
+	@echo "Building test container with latest code..."
+	@docker compose -f docker-compose.test.yml up -d --build
+	@echo "Running tests..."
+	@docker compose -f docker-compose.test.yml exec -T weasyprint-test pytest tests/ -v --color=yes || \
+		(echo "Tests failed. Stopping test container..." && docker compose -f docker-compose.test.yml down && exit 1)
+	@echo "✓ Tests passed! Cleaning up..."
+	@docker compose -f docker-compose.test.yml down
+	@echo "✓ Test container stopped"
 
-# Run unit tests locally
-test-unit:
-	@echo "Running unit tests..."
-	@if [ ! -d "venv" ] && [ ! -f ".venv/bin/activate" ]; then \
-		echo "⚠️  No virtual environment found. Installing dev dependencies..."; \
-		pip install -r requirements-dev.txt; \
-	fi
-	pytest tests/ -v
-
-# Run tests with coverage
+# Run tests with coverage in Docker
 test-cov:
+	@echo "Running tests with coverage in isolated Docker container..."
+	@echo "Building test container with latest code..."
+	@docker compose -f docker-compose.test.yml up -d --build
 	@echo "Running tests with coverage..."
-	@if [ ! -d "venv" ] && [ ! -f ".venv/bin/activate" ]; then \
-		echo "⚠️  No virtual environment found. Installing dev dependencies..."; \
-		pip install -r requirements-dev.txt; \
-	fi
-	pytest tests/ -v --cov=app --cov-report=html --cov-report=term
+	@docker compose -f docker-compose.test.yml exec -T weasyprint-test pytest tests/ -v --cov=app --cov-report=html --cov-report=term --color=yes || \
+		(echo "Tests failed. Stopping test container..." && docker compose -f docker-compose.test.yml down && exit 1)
 	@echo ""
-	@echo "✓ Coverage report generated in htmlcov/index.html"
+	@echo "✓ Coverage report generated in htmlcov/"
 	@echo "  Open with: open htmlcov/index.html"
+	@docker compose -f docker-compose.test.yml down
+	@echo "✓ Test container stopped"
 
-# Run tests in watch mode
+# Run tests in watch mode in Docker
 test-watch:
-	@echo "Running tests in watch mode (Ctrl+C to stop)..."
-	@if command -v pytest-watch > /dev/null; then \
-		pytest-watch tests/ -- -v; \
-	else \
-		echo "⚠️  pytest-watch not found. Installing..."; \
-		pip install pytest-watch; \
-		pytest-watch tests/ -- -v; \
-	fi
-
-# Run tests inside Docker container
-test-docker:
-	@echo "Running tests in Docker container..."
-	docker compose exec weasyprint-sandbox sh -c "pip install -q -r requirements-dev.txt && pytest tests/ -v"
+	@echo "Running tests in watch mode in isolated Docker container..."
+	@echo "Building test container with latest code..."
+	@docker compose -f docker-compose.test.yml up -d --build
+	@echo "Starting watch mode (Ctrl+C to stop)..."
+	@echo "File changes will trigger re-runs..."
+	@docker compose -f docker-compose.test.yml exec weasyprint-test ptw tests/ -- -v --color=yes || true
+	@echo "Stopping test container..."
+	@docker compose -f docker-compose.test.yml down
+	@echo "✓ Test container stopped"
 
 # Rebuild everything
 rebuild:

@@ -3,10 +3,8 @@
 WeasyPrint Sandbox - Web Server
 Provides a browser-based interface for live PDF preview
 """
-import os
 import time
 import json
-import base64
 import uuid
 import shutil
 import threading
@@ -15,26 +13,34 @@ from datetime import datetime, timedelta
 from flask import Flask, render_template, send_file, jsonify, Response, request, session
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 from weasyprint import HTML
 from jinja2 import Environment, FileSystemLoader, Template
 import traceback
 
+# Import new modular services
+from app.config import get_config
+from app.utils.logger import get_logger
+from app.services.watcher_service import WatcherService
+
+# Initialize configuration and logging
+config = get_config()
+logger = get_logger(__name__)
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'weasyprint-sandbox-secret')
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
+app.config['SECRET_KEY'] = config.SECRET_KEY
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=config.SESSION_LIFETIME_HOURS)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Configuration
-WATCH_DIR = Path(__file__).parent
-WORKSPACES_DIR = WATCH_DIR / "workspaces"
-TEMPLATE_DIR = WATCH_DIR / "playground_files"  # Template files for new workspaces
-OUTPUT_PDF = WATCH_DIR / "output.pdf"
+WATCH_DIR = config.BASE_DIR
+WORKSPACES_DIR = config.WORKSPACES_DIR
+TEMPLATE_DIR = config.TEMPLATE_DIR
+OUTPUT_PDF = config.OUTPUT_PDF
 
-# Create workspaces directory
+# Ensure required directories exist
 WORKSPACES_DIR.mkdir(exist_ok=True)
+logger.info(f"Workspaces directory: {WORKSPACES_DIR}")
 
 # Session metadata storage (for tracking last access time and cleanup)
 SESSION_METADATA = {}
@@ -54,7 +60,7 @@ def get_or_create_user_session():
         session['user_id'] = str(uuid.uuid4())
         session.permanent = True
         session['created_at'] = datetime.now().isoformat()
-        print(f"📝 New session created: {session['user_id']}")
+        logger.info(f"New session created: {session['user_id'][:8]}...")
     
     # Update last access time
     SESSION_METADATA[session['user_id']] = {
@@ -72,7 +78,7 @@ def get_user_workspace():
     
     # Create workspace if it doesn't exist
     if not workspace.exists():
-        print(f"🆕 Creating new workspace for user: {user_id}")
+        logger.info(f"Creating new workspace for user: {user_id[:8]}...")
         workspace.mkdir(parents=True, exist_ok=True)
         
         # Copy template files to new workspace
@@ -82,7 +88,7 @@ def get_user_workspace():
                     shutil.copy2(item, workspace / item.name)
                 elif item.is_dir():
                     shutil.copytree(item, workspace / item.name, dirs_exist_ok=True)
-            print(f"✅ Workspace initialized with template files")
+            logger.info(f"Workspace initialized with template files for {user_id[:8]}...")
     
     return workspace
 
@@ -94,7 +100,7 @@ def cleanup_expired_workspaces():
     
     for user_id, metadata in list(SESSION_METADATA.items()):
         age = now - metadata['last_access']
-        if age > timedelta(hours=1):
+        if age > timedelta(hours=config.SESSION_LIFETIME_HOURS):
             expired_sessions.append((user_id, age))
     
     for user_id, age in expired_sessions:
@@ -102,15 +108,15 @@ def cleanup_expired_workspaces():
         if workspace.exists():
             try:
                 shutil.rmtree(workspace)
-                print(f"🗑️  Deleted expired workspace: {user_id[:8]}... (age: {int(age.total_seconds()/60)}min)")
+                logger.info(f"Deleted expired workspace: {user_id[:8]}... (age: {int(age.total_seconds()/60)}min)")
             except Exception as e:
-                print(f"⚠️  Failed to delete workspace {user_id[:8]}...: {e}")
+                logger.error(f"Failed to delete workspace {user_id[:8]}...: {e}")
         
         # Remove from metadata
         SESSION_METADATA.pop(user_id, None)
     
     if expired_sessions:
-        print(f"✨ Cleaned up {len(expired_sessions)} expired workspace(s)")
+        logger.info(f"Cleaned up {len(expired_sessions)} expired workspace(s)")
 
 
 def get_workspace_info():
@@ -139,15 +145,15 @@ def get_workspace_info():
 def background_cleanup():
     """Background thread to periodically clean up expired workspaces"""
     while True:
-        time.sleep(300)  # Run every 5 minutes
+        time.sleep(config.CLEANUP_INTERVAL_SECONDS)
         try:
             cleanup_expired_workspaces()
         except Exception as e:
-            print(f"⚠️  Cleanup error: {e}")
+            logger.error(f"Cleanup error: {e}")
 
 cleanup_thread = threading.Thread(target=background_cleanup, daemon=True)
 cleanup_thread.start()
-print("🧹 Background cleanup thread started")
+logger.info("Background cleanup thread started")
 
 
 # ============================================================================
@@ -165,7 +171,7 @@ def load_params(workspace=None):
             with open(params_file, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Warning: Could not load params.json: {e}")
+            logger.warning(f"Could not load params.json: {e}")
             return {}
     return {}
 
@@ -192,66 +198,62 @@ def render_template_with_params(html_content, params, template_name='index.html'
         return template.render(**context)
     except Exception as e:
         # Fallback to simple string template if file-based loading fails
-        print(f"Warning: Template loading issue, using fallback: {e}")
+        logger.warning(f"Template loading issue, using fallback: {e}")
         template = Template(html_content)
         return template.render(**context)
 
+# ============================================================================
+# PDF Generation
+# ============================================================================
 
-class PDFGenerator(FileSystemEventHandler):
-    """Watches files and generates PDFs for user workspaces"""
+def generate_pdf_for_workspace(workspace_path, notify=True):
+    """Generate PDF for a specific workspace
     
-    def __init__(self):
-        self.debounce_seconds = 0.5
-        self.last_gen_times = {}  # Track per-workspace
-    
-    def generate_pdf_for_workspace(self, workspace_path, notify=True):
-        """Generate PDF for a specific workspace"""
+    Args:
+        workspace_path: Path to the workspace directory
+        notify: Whether to send WebSocket notifications
+    """
         global last_error, last_generated
+    
+    workspace = Path(workspace_path)
+    user_id = workspace.name
+    
+    try:
+        logger.info(f"Generating PDF for {user_id[:8]}...")
         
-        workspace = Path(workspace_path)
-        user_id = workspace.name
-        
-        now = time.time()
-        if now - self.last_gen_times.get(user_id, 0) < self.debounce_seconds:
+        html_file = workspace / "index.html"
+        if not html_file.exists():
+            logger.warning(f"index.html not found for {user_id[:8]}...")
             return
         
-        try:
-            print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Generating PDF for {user_id[:8]}...", end=" ")
-            
-            html_file = workspace / "index.html"
-            if not html_file.exists():
-                print("✗ index.html not found")
-                return
-            
-            # Load parameters
-            params = load_params(workspace)
-            
-            # Read HTML template
-            with open(html_file, 'r') as f:
-                html_content = f.read()
-            
-            # Render with FileSystemLoader to support extends/includes
-            rendered_html = render_template_with_params(html_content, params, 'index.html', workspace)
-            
-            # Generate PDF from rendered HTML
-            pdf_output = workspace / "output.pdf"
-            html = HTML(string=rendered_html, base_url=str(workspace))
-            html.write_pdf(str(pdf_output))
-            
-            self.last_gen_times[user_id] = now
-            last_generated = now
+        # Load parameters
+        params = load_params(workspace)
+        
+        # Read HTML template
+        with open(html_file, 'r') as f:
+            html_content = f.read()
+        
+        # Render with FileSystemLoader to support extends/includes
+        rendered_html = render_template_with_params(html_content, params, 'index.html', workspace)
+        
+        # Generate PDF from rendered HTML
+        pdf_output = workspace / "output.pdf"
+        html = HTML(string=rendered_html, base_url=str(workspace))
+        html.write_pdf(str(pdf_output))
+        
+        last_generated = time.time()
             last_error = None
             
-            file_size = pdf_output.stat().st_size / 1024
-            print(f"✓ Done! ({file_size:.1f} KB)")
+        file_size = pdf_output.stat().st_size / 1024
+        logger.info(f"PDF generated successfully for {user_id[:8]}... ({file_size:.1f} KB)")
             
-            # Notify clients via WebSocket (broadcast to all - they'll filter by session)
+        # Notify clients via WebSocket (broadcast to all - they'll filter by session)
             if notify:
                 socketio.emit('pdf_updated', {
                     'status': 'success',
                     'timestamp': datetime.now().isoformat(),
-                    'size': f"{file_size:.1f} KB",
-                    'user_id': user_id
+                'size': f"{file_size:.1f} KB",
+                'user_id': user_id
                 })
             
         except Exception as e:
@@ -262,32 +264,16 @@ class PDFGenerator(FileSystemEventHandler):
                 'traceback': error_trace,
                 'timestamp': datetime.now().isoformat()
             }
-            print(f"✗ Error: {error_msg}")
+        logger.error(f"PDF generation error for {user_id[:8]}...: {error_msg}")
+        logger.debug(error_trace)
             
             # Notify clients of error
             if notify:
                 socketio.emit('pdf_error', last_error)
     
-    def on_modified(self, event):
-        """Called when a file is modified"""
-        if event.is_directory:
-            return
-        
-        if event.src_path.endswith(('.html', '.css', '.json')):
-            file_path = Path(event.src_path)
-            print(f"Change detected: {file_path.name}")
-            
-            # Find the workspace directory (parent of the changed file)
-            workspace = file_path.parent
-            while workspace.parent != WORKSPACES_DIR and workspace != WORKSPACES_DIR:
-                workspace = workspace.parent
-            
-            if workspace.parent == WORKSPACES_DIR:
-                self.generate_pdf_for_workspace(workspace, notify=True)
 
-
-# Initialize PDF generator
-pdf_generator = PDFGenerator()
+# Initialize the watcher service
+watcher_service = None
 
 
 @app.route('/')
@@ -417,7 +403,7 @@ def preview():
             
             # Return the rendered HTML
             return Response(rendered_html, mimetype='text/html')
-        return "No HTML file found", 404
+    return "No HTML file found", 404
     except Exception as e:
         import traceback as tb
         error_trace = tb.format_exc()
@@ -442,7 +428,7 @@ def serve_pdf():
         
         # Generate PDF if it doesn't exist yet
         if not pdf_file.exists():
-            pdf_generator.generate_pdf_for_workspace(workspace, notify=False)
+            generate_pdf_for_workspace(workspace, notify=False)
         
         if pdf_file.exists():
             return send_file(pdf_file, mimetype='application/pdf')
@@ -491,7 +477,7 @@ def regenerate():
     """Force regenerate PDF for user's workspace"""
     try:
         workspace = get_user_workspace()
-        pdf_generator.generate_pdf_for_workspace(workspace, notify=True)
+        generate_pdf_for_workspace(workspace, notify=True)
         
         pdf_file = workspace / "output.pdf"
         if pdf_file.exists():
@@ -502,7 +488,7 @@ def regenerate():
     except Exception as e:
         import traceback as tb
         error_trace = tb.format_exc()
-        print(f"PDF generation error: {error_trace}")
+        logger.error(f"PDF generation error: {error_trace}")
         return jsonify({'error': str(e), 'trace': error_trace}), 500
 
 
@@ -535,57 +521,55 @@ def manual_cleanup():
 @socketio.on('connect')
 def handle_connect():
     """Client connected"""
-    print(f"Client connected: {datetime.now().strftime('%H:%M:%S')}")
+    logger.info(f"Client connected")
     emit('connected', {'status': 'connected'})
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
     """Client disconnected"""
-    print(f"Client disconnected: {datetime.now().strftime('%H:%M:%S')}")
+    logger.info(f"Client disconnected")
 
 
 def start_file_watcher():
-    """Start watching files for changes"""
-    # Use polling observer for better Docker compatibility on macOS
-    from watchdog.observers.polling import PollingObserver
-    observer = PollingObserver()
+    """Start watching files for changes using the new WatcherService"""
+    global watcher_service
     
-    # Watch the workspaces directory (will catch all user workspace changes)
-    observer.schedule(pdf_generator, str(WORKSPACES_DIR), recursive=True)
-    observer.start()
-    print("📁 File watcher started (polling mode for Docker compatibility)")
-    print(f"   Watching all user workspaces: {WORKSPACES_DIR}")
-    return observer
+    # Create watcher service with PDF generation callback
+    watcher_service = WatcherService(
+        workspace_root_dir=WORKSPACES_DIR,
+        callback=lambda workspace: generate_pdf_for_workspace(workspace, notify=True)
+    )
+    watcher_service.start()
+    
+    logger.info(f"File watcher started (watching {WORKSPACES_DIR})")
+    return watcher_service
 
 
 if __name__ == '__main__':
-    print("=" * 60)
-    print("WeasyPrint Live Preview Server")
-    print("=" * 60)
-    print(f"Template directory: {TEMPLATE_DIR}")
-    print(f"Workspaces directory: {WORKSPACES_DIR}")
-    print(f"  - HTML: index.html")
-    print(f"  - CSS: styles.css")
-    print(f"  - Params: params.json")
-    print(f"Output: User-specific PDFs in workspaces")
-    print("=" * 60)
-    
-    # Don't generate initial PDF - it requires a session context
+    logger.info("=" * 60)
+    logger.info(f"WeasyPrint Live Preview Server - v{config.VERSION}")
+    logger.info("=" * 60)
+    logger.info(f"Template directory: {TEMPLATE_DIR}")
+    logger.info(f"Workspaces directory: {WORKSPACES_DIR}")
+    logger.info(f"  - HTML: index.html")
+    logger.info(f"  - CSS: styles.css")
+    logger.info(f"  - Params: params.json")
+    logger.info(f"Output: User-specific PDFs in workspaces")
+    logger.info("=" * 60)
     
     # Start file watcher
     observer = start_file_watcher()
     
-    print("\n🌐 Starting web server...")
-    print("   Open: http://localhost:5000")
-    print("\nPress Ctrl+C to stop\n")
+    logger.info("Starting web server on http://0.0.0.0:5000")
+    logger.info("Press Ctrl+C to stop")
     
     try:
         # Run Flask with SocketIO
-        socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
+        socketio.run(app, host='0.0.0.0', port=5000, debug=config.DEBUG, allow_unsafe_werkzeug=True)
     except KeyboardInterrupt:
-        print("\n\nStopping server...")
-        observer.stop()
+        logger.info("Stopping server...")
+        if watcher_service:
+            watcher_service.stop()
     
-    observer.join()
-    print("Goodbye!")
+    logger.info("Server stopped. Goodbye!")

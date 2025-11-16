@@ -97,6 +97,24 @@ class WorkspaceChangeHandler(FileSystemEventHandler, LoggerMixin):
         Args:
             event: File system event
         """
+        self._process_event(event)
+    
+    def on_created(self, event: FileSystemEvent):
+        """
+        Handle file creation events
+        
+        Args:
+            event: File system event
+        """
+        self._process_event(event)
+    
+    def _process_event(self, event: FileSystemEvent):
+        """
+        Process file system events (creation or modification)
+        
+        Args:
+            event: File system event
+        """
         if event.is_directory:
             return
         
@@ -106,7 +124,7 @@ class WorkspaceChangeHandler(FileSystemEventHandler, LoggerMixin):
         if not file_path.suffix in self.watched_extensions:
             return
         
-        self.logger.debug(f"File modified: {file_path.name}")
+        self.logger.debug(f"File changed: {file_path.name}")
         
         try:
             # Extract workspace from path

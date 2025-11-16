@@ -2,69 +2,82 @@
 
 ## 📋 Available Test Commands
 
-### 1. **Run Unit Tests Locally**
+All tests run in isolated Docker containers that **spin up separately** from your development environment.
+
+### Key Features:
+✅ **Isolated Environment** - Tests run in a separate container from your dev server
+✅ **Fresh Build** - Each test run uses the latest code
+✅ **Non-Intrusive** - Your local dev container keeps running
+✅ **Auto-Cleanup** - Test container is removed after tests complete
+
+### 1. **Run Unit Tests**
 ```bash
-make test-unit
+make test
 ```
+- Spins up a fresh test container with latest code
 - Runs all tests in `tests/` directory
-- Installs dev dependencies if needed
-- Shows verbose output
+- Automatically cleans up after completion
+- Your dev container (`localhost:5000`) keeps running
 
 ### 2. **Run Tests with Coverage**
 ```bash
 make test-cov
 ```
+- Spins up a fresh test container
 - Runs tests with coverage analysis
-- Generates HTML coverage report
+- Generates HTML coverage report in `htmlcov/`
 - Shows coverage percentage in terminal
-- Opens `htmlcov/index.html` for detailed view
+- Auto-cleanup after completion
 
 ### 3. **Run Tests in Watch Mode**
 ```bash
 make test-watch
 ```
-- Automatically re-runs tests when files change
+- Spins up a persistent test container
+- Watches for file changes on host
+- Automatically re-runs tests on save
 - Great for TDD (Test-Driven Development)
-- Press `Ctrl+C` to stop
-
-### 4. **Run Tests in Docker Container**
-```bash
-make test-docker
-```
-- Runs tests inside the Docker container
-- Ensures environment consistency
-- Useful for CI/CD pipelines
-
-### 5. **Test PDF Generation** (Legacy)
-```bash
-make test
-```
-- Quick test to verify PDF generation works
-- Runs inside Docker container
+- Press `Ctrl+C` to stop and cleanup
+- Your dev container keeps running independently
 
 ## 🚀 Quick Start
 
 ### First Time Setup
 ```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
+# Build the Docker image (development)
+make build
 
-# Or let make do it for you
-make test-unit
+# Start the development server
+make up
+```
+
+### Running Tests (While Dev Server is Running!)
+```bash
+# Your dev server is running on localhost:5000...
+
+# In another terminal, run tests (they use a separate container)
+make test
+
+# Or run with coverage
+make test-cov
+
+# Or run in watch mode for TDD
+make test-watch
 ```
 
 ### Development Workflow
 ```bash
-# 1. Write your test
-vim tests/test_watcher_service.py
+# Terminal 1: Development server
+make up
 
-# 2. Run tests in watch mode
+# Terminal 2: Test watch mode (auto-runs on file changes)
 make test-watch
 
-# 3. Make changes to code
+# Terminal 3: Your editor
 vim app/services/watcher_service.py
 
-# 4. Tests auto-run on save!
+# Tests auto-run in Terminal 2 when you save!
+# Dev server in Terminal 1 keeps running independently!
 ```
 
 ### Before Committing
@@ -78,23 +91,44 @@ make test-cov
 
 ## 📊 Expected Output
 
-### test-unit
+### make test
 ```
-Running unit tests...
+Running unit tests in isolated Docker container...
+Building test container with latest code...
+[+] Building 2.3s (12/12) FINISHED
+[+] Running 1/1
+ ✔ Container weasyprint-sandbox-test  Started
+Running tests...
 ================================ test session starts =================================
-tests/test_watcher_service.py::TestWorkspaceChangeHandler::test_initialization PASSED [ 10%]
-tests/test_watcher_service.py::TestWorkspaceChangeHandler::test_should_process_first_time PASSED [ 20%]
+platform linux -- Python 3.11.5, pytest-7.4.0, pluggy-1.3.0 -- /usr/local/bin/python3
+cachedir: .pytest_cache
+rootdir: /app
+plugins: cov-4.1.0, mock-3.11.1, asyncio-0.21.1
+collected 15 items
+
+tests/test_watcher_service.py::TestWorkspaceChangeHandler::test_initialization PASSED [ 6%]
+tests/test_watcher_service.py::TestWorkspaceChangeHandler::test_should_process_debounce PASSED [ 13%]
+tests/test_watcher_service.py::TestWorkspaceChangeHandler::test_on_modified_html_file PASSED [ 20%]
 ...
 ================================ 15 passed in 5.23s ==================================
+✓ Tests passed! Cleaning up...
+[+] Running 1/1
+ ✔ Container weasyprint-sandbox-test  Removed
+✓ Test container stopped
 ```
 
-### test-cov
+### make test-cov
 ```
+Running tests with coverage in isolated Docker container...
+Building test container with latest code...
+[+] Building 1.8s (12/12) FINISHED
 Running tests with coverage...
 ================================ test session starts =================================
+collected 15 items
+
 tests/test_watcher_service.py .............                                    [100%]
 
----------- coverage: platform darwin, python 3.11.5-final-0 ----------
+---------- coverage: platform linux, python 3.11.5-final-0 ----------
 Name                                    Stmts   Miss  Cover
 -----------------------------------------------------------
 app/__init__.py                             3      0   100%
@@ -103,68 +137,113 @@ app/utils/logger.py                        35      2    94%
 -----------------------------------------------------------
 TOTAL                                     123      6    95%
 
-✓ Coverage report generated in htmlcov/index.html
+✓ Coverage report generated in htmlcov/
   Open with: open htmlcov/index.html
+[+] Running 1/1
+ ✔ Container weasyprint-sandbox-test  Removed
+✓ Test container stopped
 ```
 
-### test-watch
+### make test-watch
 ```
-Running tests in watch mode (Ctrl+C to stop)...
+Running tests in watch mode in isolated Docker container...
+Building test container with latest code...
+Starting watch mode (Ctrl+C to stop)...
+File changes will trigger re-runs...
+
 [TODAYS TIME] Running: pytest tests/ -v
 ...
 15 passed in 5.23s
+
+Waiting for file changes...
+
+[File changed detected]
+Running tests again...
+...
+15 passed in 3.12s
 
 Waiting for file changes...
 ```
 
 ## 🎯 Test-Driven Development (TDD)
 
-### TDD Workflow
+### TDD Workflow with Docker
 ```bash
-# Terminal 1: Watch mode
+# Terminal 1: Start application
+make up
+
+# Terminal 2: Watch mode for instant feedback
 make test-watch
 
-# Terminal 2: Write tests first
+# Terminal 3: Write tests and code
 vim tests/test_new_service.py
-
-# Terminal 3: Implement service
 vim app/services/new_service.py
 
-# Watch terminal 1 for instant feedback!
+# Watch terminal 2 for instant feedback!
 ```
 
 ## 🔍 Running Specific Tests
 
+All commands run in isolated test containers:
+
 ### Run specific test file
 ```bash
-pytest tests/test_watcher_service.py -v
+# Spin up test container and run specific file
+docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker-compose.test.yml exec weasyprint-test pytest tests/test_watcher_service.py -v
+docker compose -f docker-compose.test.yml down
 ```
 
 ### Run specific test class
 ```bash
-pytest tests/test_watcher_service.py::TestWatcherService -v
+docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker-compose.test.yml exec weasyprint-test pytest tests/test_watcher_service.py::TestWatcherService -v
+docker compose -f docker-compose.test.yml down
 ```
 
 ### Run specific test method
 ```bash
-pytest tests/test_watcher_service.py::TestWatcherService::test_start_and_stop -v
+docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker-compose.test.yml exec weasyprint-test pytest tests/test_watcher_service.py::TestWatcherService::test_start_and_stop -v
+docker compose -f docker-compose.test.yml down
 ```
 
 ### Run tests matching a pattern
 ```bash
-pytest tests/ -k "watcher" -v
+docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker-compose.test.yml exec weasyprint-test pytest tests/ -k "watcher" -v
+docker compose -f docker-compose.test.yml down
+```
+
+### Or use a helper script (recommended for specific tests)
+```bash
+# Create a quick test runner script
+cat > test-specific.sh << 'EOF'
+#!/bin/bash
+docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker-compose.test.yml exec -T weasyprint-test pytest "$@"
+EXIT_CODE=$?
+docker compose -f docker-compose.test.yml down
+exit $EXIT_CODE
+EOF
+
+chmod +x test-specific.sh
+
+# Now run specific tests easily
+./test-specific.sh tests/test_watcher_service.py -v
+./test-specific.sh tests/test_watcher_service.py::TestWatcherService -v
+./test-specific.sh tests/ -k "watcher" -v
 ```
 
 ## 📈 Coverage Reports
 
-### View coverage in terminal
+### View coverage reports (generated on host)
 ```bash
-pytest tests/ --cov=app --cov-report=term-missing
-```
-
-### Generate HTML coverage report
-```bash
+# Generate coverage report
 make test-cov
+
+# Coverage report is saved to htmlcov/ on your host machine
+# Open it directly
 open htmlcov/index.html  # macOS
 xdg-open htmlcov/index.html  # Linux
 start htmlcov/index.html  # Windows
@@ -180,57 +259,112 @@ start htmlcov/index.html  # Windows
 
 ### Run with print statements visible
 ```bash
-pytest tests/ -v -s
+docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker-compose.test.yml exec weasyprint-test pytest tests/ -v -s
+docker compose -f docker-compose.test.yml down
 ```
 
 ### Run with debugger (pdb)
 ```bash
-pytest tests/ -v --pdb
+docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker-compose.test.yml exec weasyprint-test pytest tests/ -v --pdb
+docker compose -f docker-compose.test.yml down
 ```
 
 ### Show local variables on failure
 ```bash
-pytest tests/ -v -l
+docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker-compose.test.yml exec weasyprint-test pytest tests/ -v -l
+docker compose -f docker-compose.test.yml down
 ```
 
 ### Stop on first failure
 ```bash
-pytest tests/ -v -x
+docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker-compose.test.yml exec weasyprint-test pytest tests/ -v -x
+docker compose -f docker-compose.test.yml down
+```
+
+### Interactive shell for debugging
+```bash
+# Start test container
+docker compose -f docker-compose.test.yml up -d --build
+
+# Open shell in test container
+docker compose -f docker-compose.test.yml exec weasyprint-test /bin/bash
+
+# Inside container:
+pytest tests/ -v
+# or
+python3
+>>> from app.services.watcher_service import WatcherService
+>>> # Test things interactively
+
+# When done
+exit
+
+# Clean up
+docker compose -f docker-compose.test.yml down
 ```
 
 ## 🔧 Troubleshooting
 
 ### Tests not found
 ```bash
-# Make sure you're in the project root
-cd /path/to/weasyprint_sandbox
+# Rebuild test container
+docker compose -f docker-compose.test.yml build --no-cache
 
-# Check Python path
-python -c "import sys; print(sys.path)"
-
-# Run with explicit path
-python -m pytest tests/ -v
+# Check if tests directory is accessible
+docker compose -f docker-compose.test.yml up -d
+docker compose -f docker-compose.test.yml exec weasyprint-test ls -la tests/
+docker compose -f docker-compose.test.yml down
 ```
 
 ### Import errors
 ```bash
-# Install the app in development mode
-pip install -e .
+# Rebuild test container to install latest dependencies
+docker compose -f docker-compose.test.yml build --no-cache
 
-# Or ensure PYTHONPATH includes app/
-export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+# Verify app package is importable
+docker compose -f docker-compose.test.yml up -d
+docker compose -f docker-compose.test.yml exec weasyprint-test python3 -c "from app.services.watcher_service import WatcherService; print('OK')"
+docker compose -f docker-compose.test.yml down
 ```
 
-### Docker tests fail
+### Test container won't start
 ```bash
-# Rebuild container
-make rebuild
+# Check logs
+docker compose -f docker-compose.test.yml logs
 
-# Check if container is running
-docker compose ps
+# Force rebuild
+docker compose -f docker-compose.test.yml build --no-cache
+docker compose -f docker-compose.test.yml up -d
 
-# View container logs
-make logs
+# Check status
+docker compose -f docker-compose.test.yml ps
+```
+
+### Port conflicts
+Don't worry! Test containers don't expose any ports, so they never conflict with your dev server running on `localhost:5000`.
+
+### Stale test containers
+```bash
+# Clean up any stale test containers
+docker compose -f docker-compose.test.yml down -v
+
+# Or clean up all stopped containers
+docker container prune
+```
+
+### Tests are slow
+```bash
+# Tests run in Docker which may be slower than native
+# But ensures consistency across all environments
+
+# You can add pytest-xdist for parallel execution:
+# 1. Add to requirements-dev.txt: pytest-xdist>=3.3.0
+# 2. Rebuild: docker compose -f docker-compose.test.yml build
+# 3. Run with: docker compose -f docker-compose.test.yml exec weasyprint-test pytest tests/ -n auto
 ```
 
 ## 📚 Additional Resources
@@ -251,20 +385,20 @@ make logs
 ## 🎉 Example Session
 
 ```bash
-# Start development
+# Start development session
 cd /Users/beta/Documents/weasyprint_sandbox
 
-# Install dependencies
-pip install -r requirements-dev.txt
+# Build and start container
+make up
 
-# Run tests once to make sure everything works
-make test-unit
+# Run tests to ensure everything works
+make test
 
-# Start watch mode for TDD
+# Start watch mode for TDD in another terminal
 make test-watch
 
-# In another terminal, start coding!
-# Tests run automatically on save
+# Make changes to code - tests run automatically!
+vim app/services/watcher_service.py
 
 # Before commit, check coverage
 make test-cov
@@ -272,5 +406,71 @@ make test-cov
 # All good? Commit!
 git add .
 git commit -m "feat: add new feature with tests"
+```
+
+## 🌟 Best Practices
+
+### 1. **Always Run Tests in Docker**
+- Ensures consistency across development and production
+- No "works on my machine" issues
+- Same environment for all developers
+
+### 2. **Use Watch Mode During Development**
+- Immediate feedback on code changes
+- Faster iteration cycle
+- Catch issues early
+
+### 3. **Check Coverage Before Committing**
+- Maintain >80% coverage
+- Ensure new code is tested
+- Use coverage report to find gaps
+
+### 4. **Write Tests First (TDD)**
+- Clearer requirements
+- Better design
+- Higher confidence
+
+### 5. **Keep Tests Fast**
+- Use mocks for external services
+- Avoid unnecessary sleeps
+- Run tests in parallel when possible
+
+## 🐳 Why Isolated Test Containers?
+
+### Benefits
+✅ **No Interference** - Dev server keeps running while tests run
+✅ **Fresh Environment** - Each test run starts with latest code
+✅ **True Isolation** - Tests can't affect your development database/state
+✅ **Parallel Development** - Test while you develop
+✅ **CI/CD Simulation** - Same environment as production tests
+✅ **Auto-Cleanup** - Test containers are removed after completion
+
+### How It Works
+1. **make test** spins up `docker-compose.test.yml`
+2. Builds a fresh container with your latest code
+3. Runs tests in isolation
+4. Reports results
+5. Automatically removes the test container
+6. Your dev container (`docker-compose.yml`) keeps running!
+
+### Architecture
+```
+┌─────────────────────────────────────┐
+│  Your Host Machine                  │
+│                                     │
+│  ┌────────────────────────────┐   │
+│  │  Dev Container (port 5000) │   │  ← make up
+│  │  - Running server          │   │  ← Keeps running!
+│  │  - Live file watching      │   │
+│  └────────────────────────────┘   │
+│                                     │
+│  ┌────────────────────────────┐   │
+│  │  Test Container (no ports) │   │  ← make test
+│  │  - Runs tests              │   │  ← Spins up
+│  │  - Uses latest code        │   │  ← Runs tests
+│  │  - Auto-removed            │   │  ← Cleans up
+│  └────────────────────────────┘   │
+│                                     │
+└─────────────────────────────────────┘
 ```
 

@@ -19,8 +19,9 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
+COPY requirements.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-dev.txt
 
 # Copy application files
 COPY . .
@@ -28,8 +29,8 @@ COPY . .
 # Create output directory
 RUN mkdir -p /app/output
 
-# Make watcher script executable
-RUN chmod +x watcher.py server.py
+# Make scripts executable
+RUN chmod +x server.py 2>/dev/null || true
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
