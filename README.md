@@ -17,12 +17,17 @@ A browser-based development environment for WeasyPrint with live split-view prev
 
 ### Option 1: Docker (Recommended)
 
-1. **Build and start:**
+1. **One command to start everything:**
    ```bash
-   make build
-   make run
+   make up
    ```
-   Your browser will automatically open to `http://localhost:5000`
+   This will build the image and start the container. Your browser will automatically open to `http://localhost:5000`
+
+   *Alternatively, run these commands separately:*
+   ```bash
+   make build  # Build the Docker image
+   make run    # Start the container
+   ```
 
 2. **Start editing:**
    
@@ -189,25 +194,45 @@ The editor uses these REST API endpoints:
 Run `make` or `make help` to see all available commands:
 
 ```bash
+# Quick start
+make up        # 🚀 Build and run (one command - recommended!)
+
+# Step-by-step
 make build     # Build the Docker image
 make run       # Run the container (starts watcher)
+
+# Management
 make stop      # Stop the container
 make restart   # Restart the container
 make logs      # View container logs (follow mode)
 make shell     # Open a shell inside the container
 make status    # Show container status
-make test      # Run a quick test to generate PDF
 make rebuild   # Rebuild image and restart container
 make clean     # Stop and remove container and image
+
+# Testing
+make test           # Run a quick test to generate PDF
+make test-unit      # Run unit tests locally
+make test-cov       # Run tests with coverage report
+make test-watch     # Run tests in watch mode
+make test-docker    # Run tests inside Docker container
 ```
 
-**Example workflow:**
+**Example workflows:**
+
+**First time setup:**
 ```bash
-make build    # First time only
-make run      # Starts server and opens browser
-# Edit files in playground_files/ directory in your favorite editor
+make up      # Builds and starts everything!
+# Edit files in playground_files/ directory
 # Watch updates happen live in the browser!
-make stop     # When done
+make stop    # When done
+```
+
+**Development workflow:**
+```bash
+make up           # Start the app
+make test-watch   # In another terminal, run tests in watch mode
+# Edit code, tests run automatically!
 ```
 
 ## ⚙️ How It Works

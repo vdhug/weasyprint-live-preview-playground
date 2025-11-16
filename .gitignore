@@ -43,3 +43,11 @@ workspaces/
 # Logs
 *.log
 
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+.pytest_cache/
+.tox/
+
