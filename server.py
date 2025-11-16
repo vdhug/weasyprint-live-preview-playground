@@ -1,280 +1,174 @@
 #!/usr/bin/env python3
 """
-WeasyPrint Sandbox - Web Server
-Provides a browser-based interface for live PDF preview
+WeasyPrint Sandbox - Web Server (Refactored)
+Provides a browser-based interface for live PDF preview using modular services
 """
 import time
-import json
-import uuid
-import shutil
 import threading
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask import Flask, render_template, send_file, jsonify, Response, request, session
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
-from weasyprint import HTML
-from jinja2 import Environment, FileSystemLoader, Template
 import traceback
 
-# Import new modular services
+# Import configuration and services
 from app.config import get_config
 from app.utils.logger import get_logger
-from app.services.watcher_service import WatcherService
+from app.services import (
+    WorkspaceService,
+    TemplateService,
+    PDFService,
+    WatcherService
+)
 
-# Initialize configuration and logging
+# Initialize
 config = get_config()
 logger = get_logger(__name__)
 
+# Flask app setup
 app = Flask(__name__)
 app.config['SECRET_KEY'] = config.SECRET_KEY
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=config.SESSION_LIFETIME_HOURS)
+app.config['PERMANENT_SESSION_LIFETIME'] = config.PERMANENT_SESSION_LIFETIME
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Configuration
-WATCH_DIR = config.BASE_DIR
-WORKSPACES_DIR = config.WORKSPACES_DIR
-TEMPLATE_DIR = config.TEMPLATE_DIR
-OUTPUT_PDF = config.OUTPUT_PDF
+# Initialize services
+workspace_service = WorkspaceService(
+    workspaces_dir=config.WORKSPACES_DIR,
+    template_dir=config.TEMPLATE_DIR,
+    session_lifetime_hours=config.WORKSPACE_EXPIRY_HOURS,
+    cleanup_interval_seconds=config.CLEANUP_INTERVAL_MINUTES * 60
+)
 
-# Ensure required directories exist
-WORKSPACES_DIR.mkdir(exist_ok=True)
-logger.info(f"Workspaces directory: {WORKSPACES_DIR}")
+template_service = TemplateService(auto_inject_datetime=True)
+pdf_service = PDFService()
 
-# Session metadata storage (for tracking last access time and cleanup)
-SESSION_METADATA = {}
-
-# Global state
+# Global state for error tracking
 last_error = None
 last_generated = 0
 
-
-# ============================================================================
-# Workspace Management
-# ============================================================================
-
-def get_or_create_user_session():
-    """Get or create a user session with workspace"""
-    if 'user_id' not in session:
-        session['user_id'] = str(uuid.uuid4())
-        session.permanent = True
-        session['created_at'] = datetime.now().isoformat()
-        logger.info(f"New session created: {session['user_id'][:8]}...")
-    
-    # Update last access time
-    SESSION_METADATA[session['user_id']] = {
-        'last_access': datetime.now(),
-        'created_at': datetime.fromisoformat(session.get('created_at', datetime.now().isoformat()))
-    }
-    
-    return session['user_id']
-
-
-def get_user_workspace():
-    """Get the workspace directory for the current user"""
-    user_id = get_or_create_user_session()
-    workspace = WORKSPACES_DIR / user_id
-    
-    # Create workspace if it doesn't exist
-    if not workspace.exists():
-        logger.info(f"Creating new workspace for user: {user_id[:8]}...")
-        workspace.mkdir(parents=True, exist_ok=True)
-        
-        # Copy template files to new workspace
-        if TEMPLATE_DIR.exists():
-            for item in TEMPLATE_DIR.iterdir():
-                if item.is_file():
-                    shutil.copy2(item, workspace / item.name)
-                elif item.is_dir():
-                    shutil.copytree(item, workspace / item.name, dirs_exist_ok=True)
-            logger.info(f"Workspace initialized with template files for {user_id[:8]}...")
-    
-    return workspace
-
-
-def cleanup_expired_workspaces():
-    """Clean up workspaces that haven't been accessed for over 1 hour"""
-    now = datetime.now()
-    expired_sessions = []
-    
-    for user_id, metadata in list(SESSION_METADATA.items()):
-        age = now - metadata['last_access']
-        if age > timedelta(hours=config.SESSION_LIFETIME_HOURS):
-            expired_sessions.append((user_id, age))
-    
-    for user_id, age in expired_sessions:
-        workspace = WORKSPACES_DIR / user_id
-        if workspace.exists():
-            try:
-                shutil.rmtree(workspace)
-                logger.info(f"Deleted expired workspace: {user_id[:8]}... (age: {int(age.total_seconds()/60)}min)")
-            except Exception as e:
-                logger.error(f"Failed to delete workspace {user_id[:8]}...: {e}")
-        
-        # Remove from metadata
-        SESSION_METADATA.pop(user_id, None)
-    
-    if expired_sessions:
-        logger.info(f"Cleaned up {len(expired_sessions)} expired workspace(s)")
-
-
-def get_workspace_info():
-    """Get information about the current user's workspace"""
-    user_id = session.get('user_id')
-    if not user_id:
-        return None
-    
-    metadata = SESSION_METADATA.get(user_id)
-    if not metadata:
-        return None
-    
-    age = datetime.now() - metadata['last_access']
-    expires_in = timedelta(hours=1) - age
-    
-    return {
-        'user_id': user_id,
-        'created_at': metadata['created_at'].isoformat(),
-        'last_access': metadata['last_access'].isoformat(),
-        'expires_in_seconds': int(expires_in.total_seconds()),
-        'expires_in_minutes': int(expires_in.total_seconds() / 60)
-    }
-
-
-# Start background cleanup thread
-def background_cleanup():
-    """Background thread to periodically clean up expired workspaces"""
-    while True:
-        time.sleep(config.CLEANUP_INTERVAL_SECONDS)
-        try:
-            cleanup_expired_workspaces()
-        except Exception as e:
-            logger.error(f"Cleanup error: {e}")
-
-cleanup_thread = threading.Thread(target=background_cleanup, daemon=True)
-cleanup_thread.start()
-logger.info("Background cleanup thread started")
+logger.info(f"WeasyPrint Sandbox Server v{config.VERSION} initialized")
 
 
 # ============================================================================
 # Helper Functions
 # ============================================================================
 
-def load_params(workspace=None):
-    """Load parameters from params.json"""
-    if workspace is None:
-        workspace = get_user_workspace()
+def get_or_create_user_session() -> str:
+    """Get or create user session"""
+    if 'user_id' not in session:
+        session['user_id'] = workspace_service.create_session_id()
+        session.permanent = True
+        workspace_service.register_session(session['user_id'])
+        logger.info(f"New session created: {session['user_id'][:8]}...")
+    else:
+        workspace_service.update_session_access(session['user_id'])
     
-    params_file = workspace / "params.json"
-    if params_file.exists():
-        try:
-            with open(params_file, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.warning(f"Could not load params.json: {e}")
-            return {}
-    return {}
+    return session['user_id']
 
 
-def render_template_with_params(html_content, params, template_name='index.html', workspace=None):
-    """Render HTML template with Jinja2 parameters
-    
-    Supports both simple string templates and advanced features like
-    template inheritance (extends) and includes.
+def get_user_workspace() -> Path:
+    """Get current user's workspace"""
+    user_id = get_or_create_user_session()
+    return workspace_service.get_or_create_workspace(user_id)
+
+
+def generate_pdf_for_workspace(workspace: Path, notify: bool = True) -> None:
     """
-    if workspace is None:
-        workspace = get_user_workspace()
-    
-    # Add common variables that are always available
-    context = {
-        'now': datetime.now(),
-        **params
-    }
-    
-    # Try to use FileSystemLoader for template inheritance support
-    try:
-        env = Environment(loader=FileSystemLoader(str(workspace)))
-        template = env.get_template(template_name)
-        return template.render(**context)
-    except Exception as e:
-        # Fallback to simple string template if file-based loading fails
-        logger.warning(f"Template loading issue, using fallback: {e}")
-        template = Template(html_content)
-        return template.render(**context)
-
-# ============================================================================
-# PDF Generation
-# ============================================================================
-
-def generate_pdf_for_workspace(workspace_path, notify=True):
-    """Generate PDF for a specific workspace
+    Generate PDF for a workspace
     
     Args:
-        workspace_path: Path to the workspace directory
+        workspace: Workspace directory path
         notify: Whether to send WebSocket notifications
     """
-        global last_error, last_generated
+    global last_error, last_generated
     
-    workspace = Path(workspace_path)
     user_id = workspace.name
     
     try:
         logger.info(f"Generating PDF for {user_id[:8]}...")
         
+        # Check for index.html
         html_file = workspace / "index.html"
         if not html_file.exists():
             logger.warning(f"index.html not found for {user_id[:8]}...")
             return
         
         # Load parameters
-        params = load_params(workspace)
+        params_file = workspace / "params.json"
+        params = pdf_service.load_params(params_file)
         
-        # Read HTML template
-        with open(html_file, 'r') as f:
-            html_content = f.read()
+        # Read and render template
+        html_content = html_file.read_text()
+        rendered_html = template_service.render_with_fallback(
+            html_file,
+            params,
+            base_dir=workspace
+        )
         
-        # Render with FileSystemLoader to support extends/includes
-        rendered_html = render_template_with_params(html_content, params, 'index.html', workspace)
-        
-        # Generate PDF from rendered HTML
+        # Generate PDF
         pdf_output = workspace / "output.pdf"
-        html = HTML(string=rendered_html, base_url=str(workspace))
-        html.write_pdf(str(pdf_output))
+        pdf_service.generate_pdf(
+            rendered_html,
+            pdf_output,
+            base_url=str(workspace)
+        )
         
         last_generated = time.time()
-            last_error = None
-            
-        file_size = pdf_output.stat().st_size / 1024
-        logger.info(f"PDF generated successfully for {user_id[:8]}... ({file_size:.1f} KB)")
-            
-        # Notify clients via WebSocket (broadcast to all - they'll filter by session)
-            if notify:
-                socketio.emit('pdf_updated', {
-                    'status': 'success',
-                    'timestamp': datetime.now().isoformat(),
-                'size': f"{file_size:.1f} KB",
+        last_error = None
+        
+        # Get PDF info
+        pdf_info = pdf_service.get_pdf_info(pdf_output)
+        
+        if pdf_info and notify:
+            socketio.emit('pdf_updated', {
+                'status': 'success',
+                'timestamp': datetime.now().isoformat(),
+                'size': f"{pdf_info['size_kb']:.1f} KB",
                 'user_id': user_id
-                })
-            
-        except Exception as e:
-            error_msg = str(e)
-            error_trace = traceback.format_exc()
-            last_error = {
-                'message': error_msg,
-                'traceback': error_trace,
-                'timestamp': datetime.now().isoformat()
-            }
+            })
+    
+    except Exception as e:
+        error_msg = str(e)
+        error_trace = traceback.format_exc()
+        last_error = {
+            'message': error_msg,
+            'traceback': error_trace,
+            'timestamp': datetime.now().isoformat()
+        }
         logger.error(f"PDF generation error for {user_id[:8]}...: {error_msg}")
         logger.debug(error_trace)
-            
-            # Notify clients of error
-            if notify:
-                socketio.emit('pdf_error', last_error)
+        
+        if notify:
+            socketio.emit('pdf_error', last_error)
     
 
-# Initialize the watcher service
-watcher_service = None
+# ============================================================================
+# Background Tasks
+# ============================================================================
 
+def background_cleanup():
+    """Background thread to periodically clean up expired workspaces"""
+    while True:
+        time.sleep(config.CLEANUP_INTERVAL_MINUTES * 60)
+        try:
+            deleted, failed = workspace_service.cleanup_expired_sessions()
+            if deleted > 0:
+                logger.info(f"Cleanup: {deleted} deleted, {failed} failed")
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
+
+
+# Start background cleanup
+cleanup_thread = threading.Thread(target=background_cleanup, daemon=True)
+cleanup_thread.start()
+logger.info("Background cleanup thread started")
+
+
+# ============================================================================
+# Web Routes
+# ============================================================================
 
 @app.route('/')
 def index():
@@ -288,101 +182,6 @@ def editor():
     return render_template('editor.html')
 
 
-@app.route('/api/files', methods=['GET'])
-def list_files():
-    """List all files in user's workspace"""
-    files = []
-    try:
-        workspace = get_user_workspace()
-        for file_path in workspace.rglob('*'):
-            if file_path.is_file() and not file_path.name.startswith('.'):
-                rel_path = file_path.relative_to(workspace)
-                files.append({
-                    'path': str(rel_path),
-                    'name': file_path.name,
-                    'size': file_path.stat().st_size
-                })
-        return jsonify({'files': files})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/file/<path:filename>', methods=['GET'])
-def read_file(filename):
-    """Read a file from user's workspace"""
-    try:
-        workspace = get_user_workspace()
-        file_path = workspace / filename
-        
-        # Security: ensure path is within user's workspace
-        if not file_path.resolve().is_relative_to(workspace.resolve()):
-            return jsonify({'error': 'Invalid file path'}), 403
-        
-        if not file_path.exists():
-            return jsonify({'error': 'File not found'}), 404
-        
-        content = file_path.read_text(encoding='utf-8')
-        return jsonify({
-            'content': content,
-            'filename': filename,
-            'path': str(file_path.relative_to(workspace))
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/file/<path:filename>', methods=['PUT'])
-def write_file(filename):
-    """Write a file to user's workspace"""
-    try:
-        workspace = get_user_workspace()
-        file_path = workspace / filename
-        
-        # Security: ensure path is within user's workspace
-        if not file_path.resolve().is_relative_to(workspace.resolve()):
-            return jsonify({'error': 'Invalid file path'}), 403
-        
-        data = request.get_json()
-        content = data.get('content', '')
-        
-        # Create parent directories if needed
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Write file
-        file_path.write_text(content, encoding='utf-8')
-        
-        return jsonify({
-            'status': 'success',
-            'message': f'File {filename} saved successfully'
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/file/<path:filename>', methods=['DELETE'])
-def delete_file_api(filename):
-    """Delete a file from user's workspace"""
-    try:
-        workspace = get_user_workspace()
-        file_path = workspace / filename
-        
-        # Security: ensure path is within user's workspace
-        if not file_path.resolve().is_relative_to(workspace.resolve()):
-            return jsonify({'error': 'Invalid file path'}), 403
-        
-        # Don't allow deleting required files
-        if filename in ['index.html', 'params.json']:
-            return jsonify({'error': 'Cannot delete required files'}), 403
-        
-        if file_path.exists():
-            file_path.unlink()
-            return jsonify({'status': 'success', 'message': f'File {filename} deleted'})
-        else:
-            return jsonify({'error': 'File not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
 @app.route('/preview')
 def preview():
     """Serve the rendered HTML content for preview"""
@@ -390,23 +189,24 @@ def preview():
         workspace = get_user_workspace()
         html_file = workspace / "index.html"
         
-        if html_file.exists():
-            # Load parameters
-            params = load_params(workspace)
-            
-            # Read HTML template (for fallback)
-            with open(html_file, 'r') as f:
-                html_content = f.read()
-            
-            # Render with FileSystemLoader to support extends/includes
-            rendered_html = render_template_with_params(html_content, params, 'index.html', workspace)
-            
-            # Return the rendered HTML
-            return Response(rendered_html, mimetype='text/html')
-    return "No HTML file found", 404
+        if not html_file.exists():
+            return "No HTML file found", 404
+        
+        # Load and render template
+        params_file = workspace / "params.json"
+        params = pdf_service.load_params(params_file)
+        html_content = html_file.read_text()
+        
+        rendered_html = template_service.render_with_fallback(
+            html_file,
+            params,
+            base_dir=workspace
+        )
+        
+        return Response(rendered_html, mimetype='text/html')
+    
     except Exception as e:
-        import traceback as tb
-        error_trace = tb.format_exc()
+        error_trace = traceback.format_exc()
         error_html = f"""
         <html>
         <head><title>Preview Error</title></head>
@@ -421,52 +221,62 @@ def preview():
 
 @app.route('/pdf')
 def serve_pdf():
-    """Serve the generated PDF for user's workspace"""
+    """Serve the generated PDF"""
     try:
         workspace = get_user_workspace()
         pdf_file = workspace / "output.pdf"
         
-        # Generate PDF if it doesn't exist yet
+        # Generate if doesn't exist
         if not pdf_file.exists():
             generate_pdf_for_workspace(workspace, notify=False)
         
         if pdf_file.exists():
             return send_file(pdf_file, mimetype='application/pdf')
+        
         return "PDF not generated yet", 404
+    
     except Exception as e:
+        logger.error(f"Error serving PDF: {e}")
         return f"Error: {str(e)}", 500
 
 
 @app.route('/styles.css')
 def serve_css():
-    """Serve the main CSS file from user's workspace"""
+    """Serve the main CSS file"""
     try:
         workspace = get_user_workspace()
         css_file = workspace / "styles.css"
+        
         if css_file.exists():
             return send_file(css_file, mimetype='text/css')
+        
         return "", 404
+        
     except Exception as e:
         return "", 404
 
 
 @app.route('/<path:filename>')
-def serve_playground_files(filename):
-    """Serve CSS and other static files from user's workspace"""
-    # Only serve CSS files for security
+def serve_files(filename):
+    """Serve CSS and other static files from workspace"""
     if filename.endswith('.css'):
         workspace = get_user_workspace()
         file_path = workspace / filename
+        
         if file_path.exists() and file_path.is_file():
             return send_file(file_path, mimetype='text/css')
+    
     return "", 404
 
 
 @app.route('/status')
 def status():
     """Get current status"""
+    workspace = get_user_workspace()
+    pdf_file = workspace / "output.pdf"
+    
     return jsonify({
-        'pdf_exists': OUTPUT_PDF.exists(),
+        'pdf_exists': pdf_file.exists(),
         'last_error': last_error,
         'last_generated': last_generated
     })
@@ -474,88 +284,217 @@ def status():
 
 @app.route('/regenerate', methods=['POST'])
 def regenerate():
-    """Force regenerate PDF for user's workspace"""
+    """Force regenerate PDF"""
     try:
         workspace = get_user_workspace()
         generate_pdf_for_workspace(workspace, notify=True)
         
         pdf_file = workspace / "output.pdf"
         if pdf_file.exists():
-            pdf_size = pdf_file.stat().st_size / 1024  # KB
-            return jsonify({'status': 'success', 'size': pdf_size})
-        else:
-            return jsonify({'error': 'PDF generation failed'}), 500
+            pdf_info = pdf_service.get_pdf_info(pdf_file)
+            return jsonify({'status': 'success', 'size': pdf_info['size_kb']})
+        
+        return jsonify({'error': 'PDF generation failed'}), 500
+        
     except Exception as e:
-        import traceback as tb
-        error_trace = tb.format_exc()
-        logger.error(f"PDF generation error: {error_trace}")
+        error_trace = traceback.format_exc()
+        logger.error(f"Regenerate error: {error_trace}")
         return jsonify({'error': str(e), 'trace': error_trace}), 500
 
 
+# ============================================================================
+# API Routes - Files
+# ============================================================================
+
+@app.route('/api/files', methods=['GET'])
+def list_files():
+    """List all files in user's workspace"""
+    try:
+        user_id = get_or_create_user_session()
+        files = workspace_service.list_workspace_files(user_id)
+        return jsonify({'files': files})
+        
+    except Exception as e:
+        logger.error(f"Error listing files: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/file/<path:filename>', methods=['GET'])
+def read_file(filename):
+    """Read a file from workspace"""
+    try:
+        workspace = get_user_workspace()
+        file_path = workspace / filename
+        
+        # Security check
+        if not file_path.resolve().is_relative_to(workspace.resolve()):
+            return jsonify({'error': 'Invalid file path'}), 403
+        
+        if not file_path.exists():
+            return jsonify({'error': 'File not found'}), 404
+        
+        content = file_path.read_text(encoding='utf-8')
+        return jsonify({
+            'content': content,
+            'filename': filename,
+            'path': str(file_path.relative_to(workspace))
+        })
+        
+    except Exception as e:
+        logger.error(f"Error reading file: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/file/<path:filename>', methods=['PUT'])
+def write_file(filename):
+    """Write a file to workspace"""
+    try:
+        workspace = get_user_workspace()
+        file_path = workspace / filename
+        
+        # Security check
+        if not file_path.resolve().is_relative_to(workspace.resolve()):
+            return jsonify({'error': 'Invalid file path'}), 403
+        
+        data = request.get_json()
+        content = data.get('content', '')
+        
+        # Create parent directories
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content, encoding='utf-8')
+        
+        logger.debug(f"File written: {filename}")
+        return jsonify({
+            'status': 'success',
+            'message': f'File {filename} saved successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error writing file: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/file/<path:filename>', methods=['DELETE'])
+def delete_file(filename):
+    """Delete a file from workspace"""
+    try:
+        workspace = get_user_workspace()
+        file_path = workspace / filename
+        
+        # Security check
+        if not file_path.resolve().is_relative_to(workspace.resolve()):
+            return jsonify({'error': 'Invalid file path'}), 403
+        
+        # Don't allow deleting required files
+        if filename in ['index.html', 'params.json']:
+            return jsonify({'error': 'Cannot delete required files'}), 403
+        
+        if file_path.exists():
+            file_path.unlink()
+            logger.debug(f"File deleted: {filename}")
+            return jsonify({'status': 'success', 'message': f'File {filename} deleted'})
+        
+        return jsonify({'error': 'File not found'}), 404
+        
+    except Exception as e:
+        logger.error(f"Error deleting file: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# API Routes - Workspace
+# ============================================================================
+
 @app.route('/api/workspace/info', methods=['GET'])
 def workspace_info():
-    """Get information about the current user's workspace"""
+    """Get workspace information"""
     try:
-        info = get_workspace_info()
+        user_id = get_or_create_user_session()
+        info = workspace_service.get_session_info(user_id)
+        
         if info:
             return jsonify(info)
+        
         return jsonify({'error': 'No active session'}), 404
+        
     except Exception as e:
+        logger.error(f"Error getting workspace info: {e}")
         return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/workspace/cleanup', methods=['POST'])
 def manual_cleanup():
-    """Manually trigger workspace cleanup (admin endpoint)"""
+    """Manually trigger cleanup (admin endpoint)"""
     try:
-        cleanup_expired_workspaces()
-        active_count = len(SESSION_METADATA)
+        deleted, failed = workspace_service.cleanup_expired_sessions()
+        active_count = workspace_service.get_active_sessions_count()
+        
         return jsonify({
             'status': 'success',
+            'deleted': deleted,
+            'failed': failed,
             'active_workspaces': active_count
         })
+        
     except Exception as e:
+        logger.error(f"Error in manual cleanup: {e}")
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# WebSocket Events
+# ============================================================================
 
 @socketio.on('connect')
 def handle_connect():
     """Client connected"""
-    logger.info(f"Client connected")
+    logger.info("Client connected")
     emit('connected', {'status': 'connected'})
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
     """Client disconnected"""
-    logger.info(f"Client disconnected")
+    logger.info("Client disconnected")
+
+
+# ============================================================================
+# File Watcher
+# ============================================================================
+
+# Global watcher
+watcher_service = None
 
 
 def start_file_watcher():
-    """Start watching files for changes using the new WatcherService"""
+    """Start watching files for changes"""
     global watcher_service
     
-    # Create watcher service with PDF generation callback
     watcher_service = WatcherService(
-        workspace_root_dir=WORKSPACES_DIR,
-        callback=lambda workspace: generate_pdf_for_workspace(workspace, notify=True)
+        watch_directory=config.WORKSPACES_DIR,
+        on_change_callback=lambda workspace: generate_pdf_for_workspace(workspace, notify=True),
+        use_polling=config.WATCHER_USE_POLLING,
+        poll_interval=config.WATCHER_POLL_INTERVAL,
+        debounce_seconds=config.WATCHER_DEBOUNCE_SECONDS
     )
-    watcher_service.start()
     
-    logger.info(f"File watcher started (watching {WORKSPACES_DIR})")
+    watcher_service.start()
+    logger.info(f"File watcher started (watching {config.WORKSPACES_DIR})")
+    
     return watcher_service
 
 
+# ============================================================================
+# Application Entry Point
+# ============================================================================
+
 if __name__ == '__main__':
     logger.info("=" * 60)
-    logger.info(f"WeasyPrint Live Preview Server - v{config.VERSION}")
+    logger.info(f"{config.APP_NAME} - v{config.VERSION}")
     logger.info("=" * 60)
-    logger.info(f"Template directory: {TEMPLATE_DIR}")
-    logger.info(f"Workspaces directory: {WORKSPACES_DIR}")
-    logger.info(f"  - HTML: index.html")
-    logger.info(f"  - CSS: styles.css")
-    logger.info(f"  - Params: params.json")
-    logger.info(f"Output: User-specific PDFs in workspaces")
+    logger.info(f"Template directory: {config.TEMPLATE_DIR}")
+    logger.info(f"Workspaces directory: {config.WORKSPACES_DIR}")
+    logger.info(f"Session lifetime: {config.WORKSPACE_EXPIRY_HOURS}h")
     logger.info("=" * 60)
     
     # Start file watcher
@@ -566,7 +505,13 @@ if __name__ == '__main__':
     
     try:
         # Run Flask with SocketIO
-        socketio.run(app, host='0.0.0.0', port=5000, debug=config.DEBUG, allow_unsafe_werkzeug=True)
+        socketio.run(
+            app,
+            host='0.0.0.0',
+            port=5000,
+            debug=config.DEBUG,
+            allow_unsafe_werkzeug=True
+        )
     except KeyboardInterrupt:
         logger.info("Stopping server...")
         if watcher_service:
