@@ -5,11 +5,11 @@ A browser-based development environment for WeasyPrint with live split-view prev
 ## ✨ Features
 
 - 🌐 **Browser-based interface** - Split view with HTML preview (left) and PDF output (right)
-- ⚡ **Live updates** - Automatic PDF regeneration on file changes
+- ⚡ **Live updates** - PDF regeneration on file save
 - ✏️ **Integrated code editor** - Edit files directly in your browser with Monaco Editor (VS Code's editor)
 - 🔴 **Error display** - See compilation errors directly in the browser
 - 🔄 **WebSocket updates** - Real-time notifications without page refresh
-- 💾 **Auto-save** - Changes are automatically saved as you type
+- 💾 **Manual save** - Press Ctrl+S (Cmd+S) to save and trigger PDF rebuild
 - 📱 **Responsive** - Resizable panels to adjust your workspace
 - 🐳 **Dockerized** - No local dependencies needed
 
@@ -34,7 +34,8 @@ A browser-based development environment for WeasyPrint with live split-view prev
    **Option A: Use the web editor** (Recommended)
    - Click the "⚡ Editor" button in the preview interface
    - Edit files directly in your browser with syntax highlighting
-   - Changes auto-save and PDF regenerates automatically
+   - Press Ctrl+S (Cmd+S) to save changes
+   - PDF regenerates automatically on save
    - Supports `index.html`, `styles.css`, `params.json`, and other files
    
    **Option B: Use your favorite editor**
@@ -359,6 +360,7 @@ self.debounce_seconds = 1.0  # Wait 1 second between regenerations
 
 - [WeasyPrint Documentation](https://doc.courtbouillon.org/weasyprint/)
 - [CSS Print Specifications](https://developer.mozilla.org/en-US/docs/Web/CSS/@page)
+- [Jinja2 Template Documentation](https://jinja.palletsprojects.com/en/3.1.x/templates/)
 
 ## 🎯 Example Use Cases
 
