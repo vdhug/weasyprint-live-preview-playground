@@ -209,6 +209,22 @@
         .editor-title {
             font-size: 13px;
             color: #cccccc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .unsaved-indicator {
+            display: none;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #facc15;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .unsaved-indicator.show {
+            display: block;
         }
 
         .editor-info {
@@ -444,8 +460,11 @@
 
         <div class="editor-container">
             <div class="editor-header">
-                <div class="editor-title" id="editorTitle">No file selected</div>
-                <div class="editor-info" id="editorInfo"></div>
+                <div class="editor-title">
+                    <span class="unsaved-indicator" id="unsavedIndicator"></span>
+                    <span id="editorTitle">No file selected</span>
+                </div>
+                <div class="editor-info" id="editorInfo">💡 Press Ctrl+S (Cmd+S) to save</div>
             </div>
             <div id="editor"></div>
         </div>
@@ -539,11 +558,10 @@
                 if (!currentFile) return;
                 
                 isModified = true;
-                updateStatus('Unsaved changes...', 'saving');
+                updateStatus('Unsaved changes', 'saving');
                 
-                // Auto-save after 1 second of no typing
-                clearTimeout(saveTimeout);
-                saveTimeout = setTimeout(() => saveFile(), 1000);
+                // Show unsaved indicator
+                document.getElementById('unsavedIndicator').classList.add('show');
             });
 
             // Load initial file list
@@ -696,8 +714,11 @@
                 isModified = false;
                 updateStatus('Saved', 'saved');
                 
+                // Hide unsaved indicator
+                document.getElementById('unsavedIndicator').classList.remove('show');
+                
                 if (!silent) {
-                    showToast('File saved successfully', 'success');
+                    showToast('File saved successfully! PDF will regenerate.', 'success');
                 }
             } catch (error) {
                 showToast('Failed to save file: ' + error.message, 'error');
